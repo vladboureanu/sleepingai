@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 function HomePage() {
   const [credits, setCredits] = useState(12);
   const [selectedTopic, setSelectedTopic] = useState(1); // Start with Science & Space (center)
+  const [visualRotation, setVisualRotation] = useState(-72); // Track visual rotation separately
   const [showMenu, setShowMenu] = useState(false);
   const router = useRouter();
 
@@ -55,15 +56,17 @@ function HomePage() {
   };
 
   const handlePrevTopic = () => {
-    setSelectedTopic(prev => prev === topics.length - 1 ? 0 : prev + 1);
+    setSelectedTopic(prev => prev === 0 ? topics.length - 1 : prev - 1);
+    setVisualRotation(prev => prev + 72); // Always rotate in one direction
   };
 
   const handleNextTopic = () => {
-    setSelectedTopic(prev => prev === 0 ? topics.length - 1 : prev - 1);
+    setSelectedTopic(prev => prev === topics.length - 1 ? 0 : prev + 1);
+    setVisualRotation(prev => prev - 72); // Always rotate in the other direction
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-purple-500 flex flex-col font-roboto" style={{ fontSize: '16px' }}>
+    <div className="min-h-screen bg-gradient-to-br from-teal-400 via-purple-300 to-indigo-900 flex flex-col font-roboto" style={{ fontSize: '16px' }}>
       {/* Header */}
       <div className="flex justify-end items-center p-6">
         <div className="flex items-center gap-4">
@@ -89,12 +92,12 @@ function HomePage() {
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col items-center justify-center px-4">
-        {/* Title - Reduced spacing */}
+        {/* Logo - Consistent with other pages */}
         <div className="mb-6 mt-4">
-          <h1 className="text-6xl md:text-7xl font-light text-white text-center mb-2 tracking-wide drop-shadow-lg">
+          <h1 className="text-6xl md:text-7xl font-light text-white text-center tracking-tight mb-2 drop-shadow-lg">
             Sleeping<span className="text-purple-600 font-medium">AI</span>
           </h1>
-          <p className="text-xl text-gray-700 text-center font-normal opacity-90">Your Bedtime, Reimagined.</p>
+          <p className="text-xl md:text-2xl text-gray-700 text-center font-normal opacity-90">Your Bedtime, Reimagined.</p>
         </div>
 
         {/* Bigger 3D Circular Carousel */}
@@ -115,7 +118,7 @@ function HomePage() {
               className="flex items-center justify-center h-72 relative"
               style={{ 
                 transformStyle: 'preserve-3d',
-                transform: `rotateY(${selectedTopic * -72}deg)`,
+                transform: `rotateY(${visualRotation}deg)`,
                 transition: 'transform 600ms cubic-bezier(0.4, 0.0, 0.2, 1)'
               }}
             >
@@ -152,7 +155,7 @@ function HomePage() {
                       
                       {/* Enhanced glow effect for active card */}
                       {isActive && (
-                        <div className="absolute -inset-1 bg-gradient-to-r from-purple-400 to-pink-400 rounded-3xl opacity-25 blur-sm -z-10"></div>
+                        <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-purple-400 rounded-3xl opacity-30 blur-sm -z-10"></div>
                       )}
                     </div>
                   </div>
@@ -174,8 +177,8 @@ function HomePage() {
 
         {/* Topic Title and Description - Tighter spacing */}
         <div className="text-center mb-2 px-4">
-          <h3 className="text-lg font-medium text-gray-700 mb-1">{topics[selectedTopic].title}</h3>
-          <p className="text-sm text-gray-600 max-w-xl mx-auto leading-relaxed font-normal opacity-90">
+          <h3 className="text-heading-sm font-medium text-gray-700 mb-1">{topics[selectedTopic].title}</h3>
+          <p className="text-body text-gray-700 max-w-xl mx-auto leading-relaxed font-normal opacity-90">
             {topics[selectedTopic].description}
           </p>
         </div>
@@ -188,8 +191,8 @@ function HomePage() {
               onClick={() => handleTopicSelect(index)}
               className={`w-3 h-3 rounded-full transition-all duration-300 ${
                 index === selectedTopic
-                  ? 'bg-purple-600 scale-125'
-                  : 'bg-gray-600 hover:bg-gray-500 opacity-80'
+                  ? 'bg-teal-500 scale-125'
+                  : 'bg-gray-500 hover:bg-gray-400 opacity-80'
               }`}
             />
           ))}
