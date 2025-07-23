@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 function HomePage() {
@@ -9,13 +9,31 @@ function HomePage() {
   const [visualRotation, setVisualRotation] = useState(-72); // Track visual rotation separately
   const [showMenu, setShowMenu] = useState(false);
   const router = useRouter();
+  const menuRef = useRef(null);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    }
+
+    // Only add listener when menu is open
+    if (showMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showMenu]);
 
   const topics = [
     {
-      id: 'nature',
-      title: 'Nature & Wildlife',
-      image: 'nature.jpg',
-      description: 'Explore the wonders of the natural world'
+      id: 'philosophy',
+      title: 'Philosophy and Dreams',
+      image: 'philosophy.jpg',
+      description: 'Adventures and Ideas: Simple Paths to Big Dreams'
     },
     {
       id: 'science',
@@ -24,27 +42,31 @@ function HomePage() {
       description: 'Journey through the cosmos and scientific discoveries'
     },
     {
-      id: 'adventure',
-      title: 'Adventure & Travel',
-      image: 'adventure.jpg',
-      description: 'Embark on exciting adventures around the world'
-    },
-    {
-      id: 'history',
-      title: 'History & Culture',
-      image: 'history.jpg',
-      description: 'Discover ancient civilizations and cultural treasures'
+      id: 'nature',
+      title: 'Nature Escapes',
+      image: 'nature.jpg',
+      description: 'Explore the wonders of the natural world'
     },
     {
       id: 'fantasy',
-      title: 'Fantasy & Magic',
-      image: 'fantasy.jpg',
+      title: 'Fantasy Realms',
+      image: 'history.jpg',
       description: 'Enter magical realms and mystical adventures'
+    },
+    {
+      id: 'history',
+      title: 'Historical Echoes',
+      image: 'fantasy.jpg',
+      description: 'Discover ancient civilizations and cultural treasures'
     }
   ];
 
   const handleTopicSelect = (index) => {
     setSelectedTopic(index);
+    // Calculate the rotation needed to bring this topic to center
+    // Negative because we rotate the container opposite to bring item forward
+    const targetRotation = -index * 72;
+    setVisualRotation(targetRotation);
   };
 
   const handleGenerateStory = () => {
@@ -56,26 +78,28 @@ function HomePage() {
   };
 
   const handlePrevTopic = () => {
-    setSelectedTopic(prev => prev === 0 ? topics.length - 1 : prev - 1);
-    setVisualRotation(prev => prev + 72); // Always rotate in one direction
+    const newTopic = selectedTopic === 0 ? topics.length - 1 : selectedTopic - 1;
+    setSelectedTopic(newTopic);
+    setVisualRotation(prev => prev - 72); // Left arrow = rotate left (negative)
   };
 
   const handleNextTopic = () => {
-    setSelectedTopic(prev => prev === topics.length - 1 ? 0 : prev + 1);
-    setVisualRotation(prev => prev - 72); // Always rotate in the other direction
+    const newTopic = selectedTopic === topics.length - 1 ? 0 : selectedTopic + 1;
+    setSelectedTopic(newTopic);
+    setVisualRotation(prev => prev + 72); // Right arrow = rotate right (positive)
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-400 via-purple-300 to-indigo-900 flex flex-col font-roboto" style={{ fontSize: '16px' }}>
+    <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-purple-500 flex flex-col font-roboto" style={{ fontSize: '16px' }}>
       {/* Header */}
       <div className="flex justify-end items-center p-6">
         <div className="flex items-center gap-4">
           {/* Credits Display */}
-          <div className="bg-white bg-opacity-80 backdrop-blur-sm rounded-2xl px-5 py-2 flex items-center gap-3 shadow-lg border border-white border-opacity-30">
+          <div className="bg-white bg-opacity-90 backdrop-blur-md rounded-2xl px-5 py-2 flex items-center gap-3 shadow-lg border border-white border-opacity-30">
             <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center">
               <span className="text-xs font-bold text-white">💰</span>
             </div>
-            <span className="text-gray-800 font-medium">Credits : {credits}</span>
+            <span className="text-gray-800 font-medium text-lg">Credits : {credits}</span>
           </div>
 
           {/* Hamburger Menu */}
@@ -124,13 +148,20 @@ function HomePage() {
             >
               {topics.map((topic, index) => {
                 const angle = (index * 72); // 72 degrees between each card
-                const isActive = index === selectedTopic;
+                
+                // Calculate which card is currently in the center based on rotation
+                const currentRotation = visualRotation % 360;
+                const normalizedRotation = currentRotation < 0 ? currentRotation + 360 : currentRotation;
+                const cardRotation = (angle + normalizedRotation) % 360;
+                
+                // A card is in center when its rotation is close to 0 degrees (facing forward)
+                const isInCenter = Math.abs(cardRotation) < 36 || Math.abs(cardRotation - 360) < 36;
                 
                 // Bigger horizontal circle positioning
                 const rotateY = angle;
                 const translateZ = 250; // Bigger radius
-                const scale = isActive ? 1 : 0.85;
-                const opacity = isActive ? 1 : 0.7;
+                const scale = isInCenter ? 1 : 0.85;
+                const opacity = isInCenter ? 1 : 0.4; // Center card fully visible, others transparent
                 
                 return (
                   <div
@@ -139,23 +170,30 @@ function HomePage() {
                     style={{
                       transform: `rotateY(${rotateY}deg) translateZ(${translateZ}px) scale(${scale})`,
                       opacity: opacity,
-                      zIndex: isActive ? 30 : 20,
+                      zIndex: isInCenter ? 30 : 20,
                       transformStyle: 'preserve-3d'
                     }}
                     onClick={() => handleTopicSelect(index)}
                   >
-                    <div className="relative rounded-3xl overflow-hidden shadow-2xl w-80 h-48">
+                    <div className={`relative rounded-3xl overflow-hidden w-80 h-48 ${
+                      isInCenter ? 'shadow-2xl' : 'shadow-lg'
+                    }`}>
                       <img
                         src={`/images/${topic.image}`}
                         alt={topic.title}
                         className="w-full h-full object-cover"
                         style={{ display: 'block' }}
                       />
-                      <div className="absolute inset-0 bg-black bg-opacity-10"></div>
+                      {/* Dynamic overlay based on center position */}
+                      <div className={`absolute inset-0 transition-all duration-600 ${
+                        isInCenter 
+                          ? 'bg-black bg-opacity-5' 
+                          : 'bg-black bg-opacity-40'
+                      }`}></div>
                       
-                      {/* Enhanced glow effect for active card */}
-                      {isActive && (
-                        <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-purple-400 rounded-3xl opacity-30 blur-sm -z-10"></div>
+                      {/* Optional: Add subtle border highlight for center card */}
+                      {isInCenter && (
+                        <div className="absolute inset-0 border-2 border-white border-opacity-20 rounded-3xl pointer-events-none"></div>
                       )}
                     </div>
                   </div>
@@ -175,10 +213,10 @@ function HomePage() {
           </button>
         </div>
 
-        {/* Topic Title and Description - Tighter spacing */}
+        {/* Topic Title and Description - Using same typography as landing page */}
         <div className="text-center mb-2 px-4">
-          <h3 className="text-heading-sm font-medium text-gray-700 mb-1">{topics[selectedTopic].title}</h3>
-          <p className="text-body text-gray-700 max-w-xl mx-auto leading-relaxed font-normal opacity-90">
+          <h3 className="text-xl md:text-2xl font-medium text-gray-700 mb-1">{topics[selectedTopic].title}</h3>
+          <p className="text-lg text-gray-700 max-w-xl mx-auto leading-relaxed font-normal opacity-90">
             {topics[selectedTopic].description}
           </p>
         </div>
@@ -191,59 +229,104 @@ function HomePage() {
               onClick={() => handleTopicSelect(index)}
               className={`w-3 h-3 rounded-full transition-all duration-300 ${
                 index === selectedTopic
-                  ? 'bg-teal-500 scale-125'
-                  : 'bg-gray-500 hover:bg-gray-400 opacity-80'
+                  ? 'bg-purple-600 scale-125'
+                  : 'bg-gray-600 hover:bg-gray-500 opacity-80'
               }`}
             />
           ))}
         </div>
 
-        {/* Generate Story Button - Compact */}
+        {/* Generate Story Button - Matching landing page button style */}
         <button
           onClick={handleGenerateStory}
           disabled={credits === 0}
-          className="bg-white bg-opacity-90 hover:bg-opacity-100 disabled:bg-gray-300 text-gray-800 py-2.5 px-5 rounded-2xl font-medium text-sm shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 disabled:transform-none transition-all duration-300 disabled:cursor-not-allowed backdrop-blur-sm"
+          className={`py-4 px-8 rounded-full font-medium text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 hover:scale-105 transition-all duration-300 ease-out disabled:transform-none disabled:cursor-not-allowed ${
+            credits > 0 
+              ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white'
+              : 'bg-gray-300 text-gray-600'
+          }`}
         >
           {credits > 0 ? 'Generate Story' : 'No Credits Available'}
         </button>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Card-Flip Menu with Click-Outside-to-Close */}
       {showMenu && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end">
-          <div className="bg-white w-80 h-full p-6 shadow-2xl">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-medium text-gray-800">Menu</h3>
-              <button
-                onClick={() => setShowMenu(false)}
-                className="text-gray-500 hover:text-gray-700 p-1"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="space-y-2">
-              <button className="w-full text-left py-3 px-4 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
-                Generate
-              </button>
-              <button className="w-full text-left py-3 px-4 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
-                Library
-              </button>
-              <button className="w-full text-left py-3 px-4 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
-                Profile
-              </button>
-              <button className="w-full text-left py-3 px-4 text-gray-700 hover:bg-gray-100 rounded-xl transition-colors">
-                Settings
-              </button>
-              <hr className="my-4 border-gray-200" />
-              <button 
-                onClick={() => router.push('/')}
-                className="w-full text-left py-3 px-4 text-red-600 hover:bg-red-50 rounded-xl transition-colors"
-              >
-                Sign Out
-              </button>
+        <div 
+          ref={menuRef}
+          className="fixed top-20 right-6 w-80 z-50" 
+          style={{ perspective: '1000px' }}
+        >
+          <div 
+            className={`w-full transition-transform duration-700 ease-in-out ${
+              showMenu ? 'transform rotateY-180' : ''
+            }`}
+            style={{ 
+              transformStyle: 'preserve-3d',
+              transform: 'rotateY(180deg)'
+            }}
+          >
+            {/* Menu Card */}
+            <div 
+              className="w-full bg-white rounded-3xl shadow-2xl border border-gray-100"
+              style={{ 
+                backfaceVisibility: 'hidden',
+                transform: 'rotateY(180deg)'
+              }}
+            >
+              <div className="p-6">
+                {/* Header */}
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-bold text-gray-800">Menu</h3>
+                  <button
+                    onClick={() => setShowMenu(false)}
+                    className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-all duration-200"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                {/* Menu Items */}
+                <div className="space-y-2">
+                  <button 
+                    onClick={() => router.push('/generate')}
+                    className="w-full text-left py-3 px-4 text-gray-700 hover:bg-gray-50 rounded-xl text-base font-medium transition-all duration-200"
+                  >
+                    Generate
+                  </button>
+                  <button 
+                    onClick={() => router.push('/library')}
+                    className="w-full text-left py-3 px-4 text-gray-700 hover:bg-gray-50 rounded-xl text-base font-medium transition-all duration-200"
+                  >
+                    Library
+                  </button>
+                  <button 
+                    onClick={() => router.push('/profile')}
+                    className="w-full text-left py-3 px-4 text-gray-700 hover:bg-gray-50 rounded-xl text-base font-medium transition-all duration-200"
+                  >
+                    Profile
+                  </button>
+                  <button 
+                    onClick={() => router.push('/settings')}
+                    className="w-full text-left py-3 px-4 text-gray-700 hover:bg-gray-50 rounded-xl text-base font-medium transition-all duration-200"
+                  >
+                    Settings
+                  </button>
+                  
+                  {/* Divider */}
+                  <div className="border-t border-gray-200 my-4"></div>
+                  
+                  {/* Sign Out */}
+                  <button 
+                    onClick={() => router.push('/')}
+                    className="w-full text-left py-3 px-4 text-red-600 hover:bg-red-50 rounded-xl text-base font-medium transition-all duration-200"
+                  >
+                    Sign Out
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
