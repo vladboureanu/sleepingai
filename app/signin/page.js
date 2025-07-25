@@ -52,7 +52,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-300 via-purple-200 to-purple-500 flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-300 to-teal-400 flex flex-col items-center justify-center p-4">
       {/* Logo */}
       <div className="mb-8">
         <h1 className="text-6xl md:text-7xl font-light text-white tracking-tight drop-shadow-lg text-center">
