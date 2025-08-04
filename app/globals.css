@@ -1,0 +1,40 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-roboto), Arial, Helvetica, sans-serif;
+  font-size: 16pt;
+  line-height: 1.6;
+}
+
+/* Typography utilities */
+.text-body {
+  font-size: 16pt;
+}
+
+.text-heading-sm {
+  font-size: 24pt;
+}
+
+.text-heading-md {
+  font-size: 28pt;
+}
+
+.text-heading-lg {
+  font-size: 32pt;
+}
