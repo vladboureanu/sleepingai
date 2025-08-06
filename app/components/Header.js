@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Header({ credits, showMenu, setShowMenu, onNavigate, currentView }) {
   const menuRef = useRef(null);
+  const router = useRouter(); // Add this for navigation
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -22,13 +24,24 @@ export default function Header({ credits, showMenu, setShowMenu, onNavigate, cur
       {/* Header Controls */}
       <div className="flex justify-end items-center p-6">
         <div className="flex items-center gap-4">
-          <div className="bg-white bg-opacity-90 backdrop-blur-md rounded-2xl px-5 py-2 flex items-center gap-3 shadow-lg border border-white border-opacity-30">
+          {/* --- Credits Button (NOW CLICKABLE) --- */}
+          <button
+            onClick={() => router.push('/store')}
+            className="bg-white bg-opacity-90 backdrop-blur-md rounded-2xl px-5 py-2 flex items-center gap-3 shadow-lg border border-white border-opacity-30 cursor-pointer transition-all hover:scale-105"
+            style={{ outline: 'none' }}
+            title="Buy more credits"
+            aria-label="Buy more credits"
+          >
             <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center">
               <span className="text-xs font-bold text-white">💰</span>
             </div>
             <span className="text-gray-800 font-medium text-lg">Credits : {credits}</span>
-          </div>
-          <button onClick={() => setShowMenu(!showMenu)} className="bg-white bg-opacity-80 backdrop-blur-sm rounded-xl p-3 hover:bg-opacity-90 transition-all duration-200 shadow-lg border border-white border-opacity-30">
+          </button>
+          {/* Menu Button */}
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="bg-white bg-opacity-80 backdrop-blur-sm rounded-xl p-3 hover:bg-opacity-90 transition-all duration-200 shadow-lg border border-white border-opacity-30"
+          >
             <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
