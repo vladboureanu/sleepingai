@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
           <>
             {/* Description */}
             <p className="text-sm text-gray-600 mb-8 text-center leading-relaxed">
-              Don't worry! It happens. Please enter the email associated with your account.
+              Do not worry! It happens. Please enter the email associated with your account.
             </p>
 
             {/* Email Field and Send Code Button - Same line */}
@@ -124,7 +124,7 @@ export default function ForgotPasswordPage() {
               </div>
               <h3 className="text-lg font-medium text-gray-800 mb-2">Check Your Email</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                We've sent a password reset code to <strong>{email}</strong>. 
+                We have sent a password reset code to <strong>{email}</strong>. 
                 Please check your inbox and follow the instructions to reset your password.
               </p>
             </div>
@@ -140,7 +140,7 @@ export default function ForgotPasswordPage() {
             {/* Resend Code Link */}
             <div className="text-center mt-4">
               <span className="text-sm text-gray-600">
-                Didn't receive the code?{' '}
+                Did not receive the code?{' '}
                 <button
                   onClick={() => {
                     setIsCodeSent(false);

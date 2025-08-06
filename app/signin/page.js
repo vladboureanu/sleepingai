@@ -219,7 +219,7 @@ export default function LoginPage() {
             {/* Sign Up Link - Much lower with more spacing */}
             <div className="text-center mt-20">
               <span className="text-sm text-gray-600">
-                Don&apos;t have an account?{' '}
+                Do not have an account?{' '}
                 <button
                   onClick={handleSignUp}
                   className="text-purple-600 hover:text-purple-700 font-medium hover:underline transition-colors duration-200"
