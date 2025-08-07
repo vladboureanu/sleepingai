@@ -4,9 +4,17 @@ import React, { useState } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/swiper-bundle.css';
 
-// Firestore imports
+// Firebase
 import { auth, db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  getDoc,
+  updateDoc,
+  increment,
+} from 'firebase/firestore';
 
 export default function GeneratePage({ onNavigate }) {
   const topicOptions = [
@@ -17,15 +25,15 @@ export default function GeneratePage({ onNavigate }) {
     'Space & Astronomy',
     'Mythology',
     'Mindfulness & Emotions',
-    'History'
+    'History',
   ];
 
-  // **IDs must exactly match your filenames under public/music**
+  // IDs must match your /public/music filenames (no hyphen for "no music")
   const musicOptions = [
-    { id: 'ambience',      label: 'Ambience' },
+    { id: 'ambience',     label: 'Ambience' },
     { id: 'rainthunder',  label: 'Rain & Thunder' },
     { id: 'naturesounds', label: 'Nature Sounds' },
-    { id: 'nomusic',      label: 'No Music' }
+    { id: 'nomusic',      label: 'No Music' },
   ];
 
   const storyPrompts = [
@@ -33,19 +41,19 @@ export default function GeneratePage({ onNavigate }) {
     'Make it feel like a dream',
     'Include a moment of wonder',
     'Let the story begin with a surprise',
-    'End with a calming message'
+    'End with a calming message',
   ];
 
   const [selectedTopic,   setSelectedTopic]   = useState('');
   const [lengthMinutes,   setLengthMinutes]   = useState(10);
   const [voice,           setVoice]           = useState('female');
-  const [backgroundMusic, setBackgroundMusic] = useState('no-music');
+  const [backgroundMusic, setBackgroundMusic] = useState('nomusic'); // <- fixed
   const [customPrompt,    setCustomPrompt]    = useState('');
   const [isGenerating,    setIsGenerating]    = useState(false);
   const [apiError,        setApiError]        = useState(null);
   const [summaries,       setSummaries]       = useState([]);
 
-  // Save to localStorage
+  // ---------- helpers ----------
   const saveToLocal = (stories) => {
     try {
       const existing = JSON.parse(localStorage.getItem('myStories') || '[]');
@@ -56,7 +64,7 @@ export default function GeneratePage({ onNavigate }) {
         voice,
         backgroundMusic,
         customPrompt,
-        savedAt:         new Date().toISOString()
+        savedAt:         new Date().toISOString(),
       }));
       localStorage.setItem('myStories', JSON.stringify([...stamped, ...existing]));
     } catch (e) {
@@ -64,30 +72,56 @@ export default function GeneratePage({ onNavigate }) {
     }
   };
 
-  // Save to Firestore
+  // Save to Firestore and return stories WITH doc ids
   const saveToFirestore = async (stories) => {
     try {
       const user = auth.currentUser;
-      if (!user) return;
+      if (!user) return stories;
+
       const colRef = collection(db, 'users', user.uid, 'stories');
-      await Promise.all(
-        stories.map(s =>
-          addDoc(colRef, {
-            title:            s.title,
-            summary:          s.summary,
-            topic:            selectedTopic,
-            lengthMin:        lengthMinutes,
-            voice,
-            backgroundMusic,
-            customPrompt,
-            isPublic:         false,
-            createdAt:        serverTimestamp()
-          })
-        )
-      );
+      const created = [];
+      for (const s of stories) {
+        const ref = await addDoc(colRef, {
+          title:            s.title,
+          summary:          s.summary,
+          topic:            selectedTopic,
+          lengthMin:        lengthMinutes,
+          voice,
+          backgroundMusic,
+          customPrompt,
+          audioUrl:         s.audioUrl || null, // keep audio if your API returned it
+          isPublic:         false,
+          createdAt:        serverTimestamp(),
+        });
+        created.push({ ...s, id: ref.id, isPublic: false });
+      }
+      return created;
     } catch (e) {
       console.error('Error writing to Firestore', e);
+      return stories; // don’t break UI if write fails
     }
+  };
+
+  // Credit check & debit
+  const debitCredits = async (cost = 1) => {
+    const user = auth.currentUser;
+    if (!user) {
+      alert('You must be logged in.');
+      return { ok: false, userRef: null, cost };
+    }
+    const userRef = doc(db, 'users', user.uid);
+    const snap = await getDoc(userRef);
+    if (!snap.exists()) {
+      alert('User not found. Try logging out and back in.');
+      return { ok: false, userRef, cost };
+    }
+    const current = snap.data().credits || 0;
+    if (current < cost) {
+      alert('Not enough credits! Please buy more credits to generate a story.');
+      return { ok: false, userRef, cost };
+    }
+    await updateDoc(userRef, { credits: increment(-cost) });
+    return { ok: true, userRef, cost };
   };
 
   // Generate handler
@@ -96,39 +130,55 @@ export default function GeneratePage({ onNavigate }) {
       alert('Please pick a topic first!');
       return;
     }
+
     setIsGenerating(true);
     setApiError(null);
 
+    // 1) debit first
+    const { ok, userRef, cost } = await debitCredits(1);
+    if (!ok) {
+      setIsGenerating(false);
+      return;
+    }
+
     try {
+      // 2) call API
       const res = await fetch('/api/generateStories', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          topic:           selectedTopic,
-          numSummaries:    1,
+          topic:         selectedTopic,
+          numSummaries:  1,
           lengthMinutes,
           voice,
           backgroundMusic,
-          customPrompt
-        })
+          customPrompt,
+        }),
       });
+
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error || res.statusText);
       }
-      const { stories: fetched } = await res.json();
-      setSummaries(fetched);
-      saveToLocal(fetched);
-      await saveToFirestore(fetched);
+
+      const { stories: fetched } = await res.json(); // [{title, summary, audioUrl?}]
+      // 3) store in FS and local (with ids)
+      const stored = await saveToFirestore(fetched);
+      saveToLocal(stored);
+      setSummaries(stored);
     } catch (err) {
       console.error(err);
-      setApiError(err.message);
+      setApiError(err.message || 'Generation failed');
+      // 4) refund if anything above failed
+      if (userRef) {
+        await updateDoc(userRef, { credits: increment(cost) }).catch(() => {});
+      }
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // ——— Form view ———
+  // ---------- UI ----------
   if (summaries.length === 0) {
     return (
       <div className="bg-white rounded-3xl shadow p-6 max-w-2xl mx-auto">
@@ -209,7 +259,7 @@ export default function GeneratePage({ onNavigate }) {
           </div>
         </label>
 
-        {/* Story Enhancement Tags */}
+        {/* Prompt chips */}
         <div className="mb-4">
           <span className="block font-medium mb-1">Enhance your story:</span>
           <div className="flex flex-wrap gap-2">
@@ -225,7 +275,7 @@ export default function GeneratePage({ onNavigate }) {
           </div>
         </div>
 
-        {/* Custom Prompt */}
+        {/* Custom prompt */}
         <label className="block mb-6">
           <span className="block font-medium mb-1">Custom Prompt</span>
           <textarea
@@ -236,7 +286,7 @@ export default function GeneratePage({ onNavigate }) {
           />
         </label>
 
-        {/* Generate button */}
+        {/* Generate */}
         <button
           onClick={handleGenerate}
           disabled={isGenerating}
@@ -247,14 +297,12 @@ export default function GeneratePage({ onNavigate }) {
           {isGenerating ? 'Generating…' : 'Generate Summaries'}
         </button>
 
-        {apiError && (
-          <p className="mt-4 text-red-600 text-center">{apiError}</p>
-        )}
+        {apiError && <p className="mt-4 text-red-600 text-center">{apiError}</p>}
       </div>
     );
   }
 
-  // ——— Carousel preview ———
+  // Carousel of results
   return (
     <div className="max-w-2xl mx-auto p-4">
       <button
@@ -264,29 +312,18 @@ export default function GeneratePage({ onNavigate }) {
         ← Change Options
       </button>
 
-      <Swiper
-        slidesPerView={1}
-        spaceBetween={20}
-        pagination={{ clickable: true }}
-        className="h-auto"
-      >
+      <Swiper slidesPerView={1} spaceBetween={20} pagination={{ clickable: true }} className="h-auto">
         {summaries.map((s, i) => (
           <SwiperSlide key={i}>
             <div className="bg-white rounded-xl shadow p-4">
               <h3 className="font-bold mb-2 truncate">{s.title}</h3>
-              <p className="text-gray-700 text-sm line-clamp-3 mb-4">
-                {s.summary}
-              </p>
+              <p className="text-gray-700 text-sm line-clamp-3 mb-4">{s.summary}</p>
+
               <button
                 onClick={() =>
                   onNavigate('playback', {
-                    stories: [s],
-                    settings: {
-                      lengthMinutes,
-                      voice,
-                      backgroundMusic,
-                      customPrompt
-                    }
+                    stories: [s], // s includes {id?, audioUrl?, isPublic}
+                    settings: { lengthMinutes, voice, backgroundMusic, customPrompt },
                   })
                 }
                 className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition"

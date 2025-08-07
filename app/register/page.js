@@ -3,11 +3,12 @@
 import { useState, useContext } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthContext } from '@/context/AuthContext';
+import { setDoc, doc } from 'firebase/firestore';
+import { db } from '../firebase'; // Adjust path if needed
 
 export default function SignUpPage() {
   const { signUp } = useContext(AuthContext)
   const [formData, setFormData] = useState({
-
     email: '',
     username: '',
     password: ''
@@ -30,37 +31,35 @@ export default function SignUpPage() {
       alert('Please accept the terms and privacy policy');
       return;
     }
-    
     if (!formData.email || !formData.username || !formData.password) {
       alert('Please fill in all fields');
       return;
     }
-    
-  //   setIsLoading(true);
-    
-  //   try {
-  //     // Simulate API call
-  //     await new Promise(resolve => setTimeout(resolve, 1500));
-  //     router.push('/dashboard');
-  //   } catch (error) {
-  //     console.error('Sign up failed:', error);
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
 
-      // real Firebase signup
     setIsLoading(true);
     try {
-      await signUp(formData.email, formData.password);
+      // 1. Create Auth user
+      const userCredential = await signUp(formData.email, formData.password);
+      const user = userCredential.user || userCredential; // Support both return shapes
+
+      // 2. Create Firestore user doc with 10 credits!
+      await setDoc(doc(db, "users", user.uid), {
+        email: formData.email,
+        username: formData.username,
+        credits: 10,
+        createdAt: Date.now()
+      });
+
       window.alert("Account created successfully!");
       router.push('/dashboard');
     } catch (err) {
       window.alert("Registration failed. Please check your email & password and try again.");
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
   };
+
   const handleLogIn = () => {
     router.push('/signin');
   };

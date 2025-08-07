@@ -63,7 +63,7 @@ export default function LibraryPage({ onNavigate }) {
     }
   }, []);
 
-  // 4) Sync all local → Firestore
+  // 4) Sync all local → Firestore (add audioUrl support)
   const syncLocalToFS = async () => {
     if (localStories.length === 0) return;
     setSyncing(true);
@@ -79,6 +79,9 @@ export default function LibraryPage({ onNavigate }) {
           topic:      s.topic,
           lengthMin:  s.lengthMin,
           voice:      s.voice,
+          backgroundMusic: s.backgroundMusic,
+          customPrompt: s.customPrompt,
+          audioUrl:   s.audioUrl || null, // <--- ADDED!
           isPublic:   false,
           createdAt:  serverTimestamp()
         })
@@ -154,11 +157,22 @@ export default function LibraryPage({ onNavigate }) {
             <div key={story.key || idx} className="bg-purple-200 rounded-xl shadow p-6">
               <h3 className="font-bold mb-1">{story.title}</h3>
               <p className="text-xs text-gray-500 mb-2">
-                {story._local
+                {story._local && story.savedAt
                   ? `Local • saved ${new Date(story.savedAt).toLocaleDateString()}`
-                  : new Date(story.createdAt?.toDate()).toLocaleDateString()}
+                  : story.createdAt && story.createdAt.toDate
+                  ? new Date(story.createdAt.toDate()).toLocaleDateString()
+                  : ''}
               </p>
               <p className="text-gray-700 mb-4 line-clamp-3">{story.summary}</p>
+
+              {/* Audio player (if audioUrl exists) */}
+              {story.audioUrl && (
+                <audio controls className="w-full mb-2">
+                  <source src={story.audioUrl} type="audio/mp3" />
+                  Your browser does not support the audio element.
+                </audio>
+              )}
+
               <div className="flex justify-between items-center">
                 <button
                   onClick={() => onNavigate('playback', { stories: [story] })}
@@ -166,7 +180,6 @@ export default function LibraryPage({ onNavigate }) {
                 >
                   ▶ Play
                 </button>
-
                 {activeTab === 'private' && !story._local && (
                   <button
                     onClick={() => togglePrivacy(story)}
