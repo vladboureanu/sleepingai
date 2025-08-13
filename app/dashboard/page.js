@@ -8,8 +8,6 @@ import GeneratePage from '../components/GeneratePage';
 import LibraryPage from '../components/LibraryPage';
 import ProfilePage from '../components/ProfilePage';
 import SettingsPage from '../components/SettingsPage';
-import CreditsPage from '../components/CreditsPage';
-import PaymentPage from '../components/PaymentPage';
 import PlayerControls from '../components/PlayerControlsPage';
 
 export default function Dashboard() {
@@ -34,7 +32,12 @@ export default function Dashboard() {
       return;
     }
     
-    if (page === 'home' || page === 'generate' || page === 'library' || page === 'profile' || page === 'settings' || page === 'credits' || page === 'payment' || page === 'playercontrols') {
+    if (page === 'credits') {
+      router.push('/store');
+      return;
+    }
+    
+    if (page === 'home' || page === 'generate' || page === 'library' || page === 'profile' || page === 'settings' || page === 'playercontrols') {
       setActiveView(page);
     } else {
       alert(`${page.charAt(0).toUpperCase() + page.slice(1)} page coming soon!`);
@@ -64,10 +67,6 @@ export default function Dashboard() {
         return <ProfilePage onNavigate={goToPage} darkMode={isDark} />;
       case 'settings':
         return <SettingsPage onNavigate={goToPage} darkMode={isDark} setDarkMode={setIsDark} />;
-      case 'credits':
-        return <CreditsPage onNavigate={goToPage} darkMode={isDark} />;
-      case 'payment':
-        return <PaymentPage onNavigate={goToPage} darkMode={isDark} />;
       case 'playercontrols':
         return <PlayerControls onNavigate={goToPage} darkMode={isDark} setDarkMode={setIsDark} />;
       default:
