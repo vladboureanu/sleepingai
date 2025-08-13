@@ -3,53 +3,49 @@
 import { useState, useEffect } from 'react';
 
 export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode }) {
-  const [settings, setSettings] = useState({
+  const [options, setOptions] = useState({
     emailNotifications: false,
     accessibility: false,
-    darkMode: darkMode // Initialize with global dark mode state
+    darkMode: darkMode
   });
 
-  // Sync local dark mode with global dark mode
   useEffect(() => {
-    setSettings(prev => ({
+    setOptions(prev => ({
       ...prev,
       darkMode: darkMode
     }));
   }, [darkMode]);
 
-  const handleToggleChange = (field) => {
+  const toggleSetting = (field) => {
     if (field === 'darkMode') {
-      // Update global dark mode state
       setDarkMode && setDarkMode(!darkMode);
     } else {
-      // Update local settings
-      setSettings(prev => ({
+      setOptions(prev => ({
         ...prev,
         [field]: !prev[field]
       }));
     }
   };
 
-  const handleSaveChanges = () => {
-    console.log('Saving settings:', settings);
+  const saveSettings = () => {
+    console.log('Saving settings:', options);
     alert('Settings updated successfully!');
   };
 
-  const handleLogout = () => {
+  const signOut = () => {
     onNavigate?.('landing');
   };
 
-  const handleChangePassword = () => {
+  const changePass = () => {
     console.log('Change password clicked');
   };
 
-  const handleAddPaymentMethod = () => {
+  const addPayment = () => {
     console.log('Add payment method clicked');
   };
 
   return (
     <>
-      {/* Site-wide dark overlay when dark mode is active */}
       {darkMode && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-0 transition-opacity duration-300"></div>
       )}
@@ -58,7 +54,6 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
         darkMode ? 'bg-gray-800' : 'bg-white'
       }`}>
         
-        {/* Settings Header with icon - centered */}
         <div className="flex items-center justify-center mb-4 relative">
           <h2 className={`text-2xl font-medium flex items-center transition-colors duration-300 ${
             darkMode ? 'text-white' : 'text-gray-800'
@@ -69,7 +64,6 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
             </svg>
             Settings
           </h2>
-          {/* Back button */}
           <button 
             onClick={() => onNavigate?.('home')}
             className={`absolute right-0 p-2 rounded-full transition-all duration-300 ${
@@ -84,13 +78,10 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
           </button>
         </div>
 
-        {/* Settings Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           
-          {/* Left Column - Settings Options */}
           <div className="space-y-6 ml-12 mt-4">
             
-            {/* Change Password */}
             <div className={`flex items-center justify-between border-b-2 pb-2 transition-colors duration-300 ${
               darkMode ? 'border-gray-600' : 'border-gray-300'
             }`} style={{ width: '400px' }}>
@@ -99,7 +90,7 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
               }`} style={{ width: '180px' }}>Change password</label>
               <div className="flex-1 text-right">
                 <button
-                  onClick={handleChangePassword}
+                  onClick={changePass}
                   className={`transition-colors duration-300 ${
                     darkMode ? 'text-gray-400 hover:text-purple-400' : 'text-gray-600 hover:text-purple-600'
                   }`}
@@ -111,7 +102,6 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
               </div>
             </div>
 
-            {/* Add Payment Method */}
             <div className={`flex items-center justify-between border-b-2 pb-2 transition-colors duration-300 ${
               darkMode ? 'border-gray-600' : 'border-gray-300'
             }`} style={{ width: '400px' }}>
@@ -120,7 +110,7 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
               }`} style={{ width: '180px' }}>Add a payment method</label>
               <div className="flex-1 text-right">
                 <button
-                  onClick={handleAddPaymentMethod}
+                  onClick={addPayment}
                   className={`transition-colors duration-300 ${
                     darkMode ? 'text-gray-400 hover:text-purple-400' : 'text-gray-600 hover:text-purple-600'
                   }`}
@@ -132,7 +122,6 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
               </div>
             </div>
 
-            {/* Email Notifications Toggle */}
             <div className={`flex items-center justify-between border-b-2 pb-2 transition-colors duration-300 ${
               darkMode ? 'border-gray-600' : 'border-gray-300'
             }`} style={{ width: '400px' }}>
@@ -141,21 +130,20 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
               }`} style={{ width: '180px' }}>Email notifications</label>
               <div className="flex-1 text-right">
                 <button
-                  onClick={() => handleToggleChange('emailNotifications')}
+                  onClick={() => toggleSetting('emailNotifications')}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                    settings.emailNotifications ? 'bg-purple-600' : (darkMode ? 'bg-gray-600' : 'bg-gray-300')
+                    options.emailNotifications ? 'bg-purple-600' : (darkMode ? 'bg-gray-600' : 'bg-gray-300')
                   }`}
                 >
                   <span
                     className={`h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                      settings.emailNotifications ? 'translate-x-6' : 'translate-x-1'
+                      options.emailNotifications ? 'translate-x-6' : 'translate-x-1'
                     }`}
                   />
                 </button>
               </div>
             </div>
 
-            {/* Accessibility Toggle */}
             <div className={`flex items-center justify-between border-b-2 pb-2 transition-colors duration-300 ${
               darkMode ? 'border-gray-600' : 'border-gray-300'
             }`} style={{ width: '400px' }}>
@@ -169,25 +157,24 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
               </label>
               <div className="flex-1 text-right">
                 <button
-                  onClick={() => handleToggleChange('accessibility')}
+                  onClick={() => toggleSetting('accessibility')}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
-                    settings.accessibility ? 'bg-purple-600' : (darkMode ? 'bg-gray-600' : 'bg-gray-300')
+                    options.accessibility ? 'bg-purple-600' : (darkMode ? 'bg-gray-600' : 'bg-gray-300')
                   }`}
                 >
                   <span
                     className={`h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
-                      settings.accessibility ? 'translate-x-6' : 'translate-x-1'
+                      options.accessibility ? 'translate-x-6' : 'translate-x-1'
                     }`}
                   />
                 </button>
               </div>
             </div>
 
-            {/* Dark Mode - Centered below other options */}
             <div className="flex justify-center mt-8">
               <div className="flex flex-col items-center">
                 <button
-                  onClick={() => handleToggleChange('darkMode')}
+                  onClick={() => toggleSetting('darkMode')}
                   className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-200 mb-2 ${
                     darkMode ? 'bg-purple-600' : 'bg-gray-300'
                   }`}
@@ -216,10 +203,9 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
 
           </div>
 
-          {/* Right Column - Save Button */}
           <div className="flex flex-col justify-center space-y-6 ml-20">
             <button
-              onClick={handleSaveChanges}
+              onClick={saveSettings}
               className="w-auto px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-all duration-300"
             >
               Save Changes
@@ -227,10 +213,9 @@ export default function SettingsPage({ onNavigate, darkMode = false, setDarkMode
           </div>
         </div>
 
-        {/* Logout Button - Bottom right corner */}
         <div className="absolute bottom-6 right-6">
           <button
-            onClick={handleLogout}
+            onClick={signOut}
             className={`flex flex-col items-center justify-center transition-colors duration-300 ${
               darkMode ? 'text-gray-400 hover:text-red-400' : 'text-gray-600 hover:text-red-600'
             }`}

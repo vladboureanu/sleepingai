@@ -22,18 +22,17 @@ export const AuthContext = createContext({
 });
 
 export function AuthContextProvider({ children }) {
-  const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-      setLoading(false);
+    const unsub = onAuthStateChanged(auth, (fbUser) => {
+      setCurrentUser(fbUser);
+      setIsLoading(false);
     });
-    return unsubscribe;
+    return unsub;
   }, []);
 
-  // Always return the **credential object** (so you can use .user)
   const signUp = (email, password) =>
     createUserWithEmailAndPassword(auth, email, password);
 
@@ -47,20 +46,19 @@ export function AuthContextProvider({ children }) {
       url: window.location.origin + "/signin"
     });
 
-  const provider = new GoogleAuthProvider();
+  const googleProvider = new GoogleAuthProvider();
   const signInWithGoogle = () => 
-    signInWithPopup(auth, provider)
+    signInWithPopup(auth, googleProvider)
       .then(result => result.user)
       .catch(error => {
-        // Optional: handle error or return null
         return null;
       });
 
   return (
     <AuthContext.Provider
       value={{
-        user,
-        loading,
+        user: currentUser,
+        loading: isLoading,
         signUp,
         login,
         logout,

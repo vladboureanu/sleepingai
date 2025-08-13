@@ -1,4 +1,3 @@
-// app/components/PlaybackPage.js
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -6,103 +5,99 @@ import { Swiper, SwiperSlide } from 'swiper/react';
 import 'swiper/swiper-bundle.css';
 
 export default function PlaybackPage({ stories, onNavigate, settings = {} }) {
-  const bgAudioRef = useRef(null);        // background loop
-  const narrAudioRef = useRef(null);      // narration <audio>
-  const progressTimerRef = useRef(null);
+  const musicRef = useRef(null);
+  const voiceRef = useRef(null);
+  const timerRef = useRef(null);
 
-  const [bgVolume, setBgVolume] = useState(0.3);
-  const [isLoading, setLoading] = useState(false);
-  const [isPlaying, setPlaying] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const rate = settings.rate ?? 1.0;
+  const [musicVol, setMusicVol] = useState(0.3);
+  const [loading, setLoading] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [currentProgress, setCurrentProgress] = useState(0);
+  const speed = settings.rate ?? 1.0;
 
-  // ---------- init / reload background music ----------
   useEffect(() => {
-    const id = settings.backgroundMusic ?? 'no-music';
-    const url = `/music/${encodeURIComponent(id)}.mp3`;
+    const musicId = settings.backgroundMusic ?? 'no-music';
+    const musicUrl = `/music/${encodeURIComponent(musicId)}.mp3`;
 
     try {
-      if (bgAudioRef.current) {
-        bgAudioRef.current.pause();
-        bgAudioRef.current.src = '';
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current.src = '';
       }
-      const bg = new Audio(url);
-      bg.loop = true;
-      bg.volume = bgVolume;
-      bgAudioRef.current = bg;
+      const bgTrack = new Audio(musicUrl);
+      bgTrack.loop = true;
+      bgTrack.volume = musicVol;
+      musicRef.current = bgTrack;
     } catch {}
     return () => {
-      if (bgAudioRef.current) {
-        bgAudioRef.current.pause();
-        bgAudioRef.current.src = '';
+      if (musicRef.current) {
+        musicRef.current.pause();
+        musicRef.current.src = '';
       }
     };
   }, [settings.backgroundMusic]);
 
-  // keep volume synced
   useEffect(() => {
-    if (bgAudioRef.current) bgAudioRef.current.volume = bgVolume;
-  }, [bgVolume]);
+    if (musicRef.current) musicRef.current.volume = musicVol;
+  }, [musicVol]);
 
-  // ---------- helpers ----------
-  const clearTimers = () => {
-    if (progressTimerRef.current) {
-      clearInterval(progressTimerRef.current);
-      progressTimerRef.current = null;
+  const clearTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
     }
   };
 
-  const stopAll = () => {
-    clearTimers();
+  const stopEverything = () => {
+    clearTimer();
     try { window.speechSynthesis.cancel(); } catch {}
     setPlaying(false);
     setLoading(false);
-    setProgress(0);
+    setCurrentProgress(0);
 
-    if (narrAudioRef.current) {
+    if (voiceRef.current) {
       try {
-        narrAudioRef.current.pause();
-        narrAudioRef.current.src = '';
-        narrAudioRef.current.removeAttribute('src');
-        narrAudioRef.current.load();
+        voiceRef.current.pause();
+        voiceRef.current.src = '';
+        voiceRef.current.removeAttribute('src');
+        voiceRef.current.load();
       } catch {}
-      narrAudioRef.current = null;
+      voiceRef.current = null;
     }
-    if (bgAudioRef.current) {
+    if (musicRef.current) {
       try {
-        bgAudioRef.current.pause();
-        bgAudioRef.current.currentTime = 0;
+        musicRef.current.pause();
+        musicRef.current.currentTime = 0;
       } catch {}
     }
   };
 
-  const playWithTTS = (text) => {
-    stopAll();
+  const speakText = (text) => {
+    stopEverything();
     setLoading(true);
 
-    const utt = new SpeechSynthesisUtterance(text);
-    utt.rate = rate;
+    const speech = new SpeechSynthesisUtterance(text);
+    speech.rate = speed;
 
-    utt.onstart = () => {
+    speech.onstart = () => {
       setLoading(false);
       setPlaying(true);
-      bgAudioRef.current?.play().catch(() => {});
-      // rough progress estimate (3 wps)
-      const words = text.trim().split(/\s+/).length;
-      const totalSec = Math.max(words / 3, 1) / rate;
-      let elapsed = 0;
-      clearTimers();
-      progressTimerRef.current = setInterval(() => {
-        elapsed += 0.25;
-        setProgress(Math.min(elapsed / totalSec, 1));
-        if (elapsed >= totalSec) clearTimers();
+      musicRef.current?.play().catch(() => {});
+      const wordCount = text.trim().split(/\s+/).length;
+      const totalTime = Math.max(wordCount / 3, 1) / speed;
+      let time = 0;
+      clearTimer();
+      timerRef.current = setInterval(() => {
+        time += 0.25;
+        setCurrentProgress(Math.min(time / totalTime, 1));
+        if (time >= totalTime) clearTimer();
       }, 250);
     };
 
-    utt.onend = () => stopAll();
+    speech.onend = () => stopEverything();
 
     try {
-      window.speechSynthesis.speak(utt);
+      window.speechSynthesis.speak(speech);
     } catch (e) {
       console.error('TTS failed:', e);
       setLoading(false);
@@ -110,57 +105,52 @@ export default function PlaybackPage({ stories, onNavigate, settings = {} }) {
     }
   };
 
-  const playStory = (story) => {
-    stopAll();
+  const playAudio = (story) => {
+    stopEverything();
 
-    // Prefer uploaded MP3
     if (story.audioUrl) {
       setLoading(true);
 
-      // Create a *fresh* audio element for each play (avoids stale state)
-      const audio = new Audio(story.audioUrl);
-      audio.preload = 'auto';
-      // IMPORTANT: do not set crossOrigin unless you truly need it
+      const audioTrack = new Audio(story.audioUrl);
+      audioTrack.preload = 'auto';
 
-      audio.addEventListener('canplay', () => {
+      audioTrack.addEventListener('canplay', () => {
         setLoading(false);
         setPlaying(true);
 
-        audio.addEventListener('timeupdate', () => {
-          if (Number.isFinite(audio.duration) && audio.duration > 0) {
-            setProgress(Math.min(audio.currentTime / audio.duration, 1));
+        audioTrack.addEventListener('timeupdate', () => {
+          if (Number.isFinite(audioTrack.duration) && audioTrack.duration > 0) {
+            setCurrentProgress(Math.min(audioTrack.currentTime / audioTrack.duration, 1));
           }
         });
 
-        bgAudioRef.current?.play().catch(() => {});
-        audio.play().catch((err) => {
+        musicRef.current?.play().catch(() => {});
+        audioTrack.play().catch((err) => {
           console.error('Narration play rejected:', err);
           alert('Autoplay was blocked — click Play again.');
         });
       });
 
-      audio.addEventListener('ended', stopAll);
-      audio.addEventListener('error', (e) => {
+      audioTrack.addEventListener('ended', stopEverything);
+      audioTrack.addEventListener('error', (e) => {
         console.error('Audio element error:', e);
         setLoading(false);
         alert('Could not play narration audio.');
       });
 
-      narrAudioRef.current = audio;
-      audio.load();
+      voiceRef.current = audioTrack;
+      audioTrack.load();
       return;
     }
 
-    // Fallback: Browser TTS
-    const text = `${story.title}. ${story.summary}`;
-    playWithTTS(text);
+    const storyText = `${story.title}. ${story.summary}`;
+    speakText(storyText);
   };
 
-  // ---------- UI ----------
   return (
     <div className="w-full max-w-3xl mx-auto p-4">
       <button
-        onClick={() => { stopAll(); onNavigate('generate'); }}
+        onClick={() => { stopEverything(); onNavigate('generate'); }}
         className="mb-6 text-sm text-purple-600 hover:underline"
       >
         ← Back to Generate
@@ -171,8 +161,8 @@ export default function PlaybackPage({ stories, onNavigate, settings = {} }) {
         <input
           type="range"
           min="0" max="1" step="0.01"
-          value={bgVolume}
-          onChange={(e) => setBgVolume(parseFloat(e.target.value))}
+          value={musicVol}
+          onChange={(e) => setMusicVol(parseFloat(e.target.value))}
         />
       </div>
 
@@ -195,28 +185,28 @@ export default function PlaybackPage({ stories, onNavigate, settings = {} }) {
               <div className="w-full bg-gray-200 h-2 rounded-full mb-4">
                 <div
                   className="h-full bg-purple-600 transition-all"
-                  style={{ width: `${progress * 100}%` }}
+                  style={{ width: `${currentProgress * 100}%` }}
                 />
               </div>
 
               <div className="flex items-center space-x-4">
                 <button
-                  onClick={() => playStory(s)}
-                  disabled={isPlaying || isLoading}
+                  onClick={() => playAudio(s)}
+                  disabled={playing || loading}
                   className={`px-4 py-2 rounded-2xl font-medium transition-all duration-200 ${
-                    (isPlaying || isLoading)
+                    (playing || loading)
                       ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                       : 'bg-purple-600 text-white hover:bg-purple-700'
                   }`}
                 >
-                  {isLoading ? 'Loading…' : (isPlaying ? 'Playing…' : 'Play')}
+                  {loading ? 'Loading…' : (playing ? 'Playing…' : 'Play')}
                 </button>
 
                 <button
-                  onClick={stopAll}
-                  disabled={!isPlaying && !isLoading}
+                  onClick={stopEverything}
+                  disabled={!playing && !loading}
                   className={`px-4 py-2 rounded-2xl font-medium transition-all duration-200 ${
-                    (isPlaying || isLoading)
+                    (playing || loading)
                       ? 'bg-red-500 text-white hover:bg-red-600'
                       : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                   }`}

@@ -1,118 +1,78 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useContext } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthContext } from '@/context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 
 export default function LoginPage() {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: ''
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [credentials, setCredentials] = useState({ email: '', password: '' });
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const router = useRouter();
   const { login, signInWithGoogle } = useContext(AuthContext);
-  const [error, setError] = useState("");  
 
-  const handleChange = (e) => {
+  const updateField = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setCredentials(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleLogin = async () => {
-    if (!acceptTerms) {
+  const submitLogin = async () => {
+    if (!termsAccepted) {
       alert('Please accept the terms and privacy policy');
       return;
     }
     
-    // setIsLoading(true);
-    
-    // try {
-    //   await new Promise(resolve => setTimeout(resolve, 1500));
-    //   router.push('/dashboard');
-    // } catch (error) {
-    //   console.error('Login failed:', error);
-    // } finally {
-    //   setIsLoading(false);
-    // }
-    // setError("");
-    // setIsLoading(true);
-    try {
-      await login(formData.email, formData.password);
-            router.push('/dashboard');
-          } catch (err) {
-            // // Firebase error message
-            // setError(err.message);
-            window.alert("Invalid login, please check User or Password!")
-            
-        } finally {
-            setIsLoading(false);
-        }
-
-    setError("");
-    setIsLoading(true);
+    setErrorMsg("");
+    setLoading(true);
 
     try {
-      await login(formData.email, formData.password);
+      await login(credentials.email, credentials.password);
       router.push('/dashboard');
     } catch (err) {
-      setError(err.message);
+      window.alert("Invalid login, please check User or Password!");
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-
-
-    
-
-  // const handleGoogleLogin = () => {
-  //   console.log('Google login clicked');
-  // };
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
+  const googleSignIn = async () => {
+    setLoading(true);
     try {
       await signInWithGoogle();
       router.push('/dashboard');
     } catch (err) {
       window.alert("Google sign‑in failed: " + err.message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }
-
-  const handleForgotPassword = () => {
-    router.push('/forgot-password');
   };
 
-  const handleSignUp = () => {
-    router.push('/register');
-  };
+  const forgotPass = () => router.push('/forgot-password');
+  const goToSignUp = () => router.push('/register');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-300 to-teal-400 flex flex-col items-center justify-center p-4">
-      {/* Logo */}
+    <div 
+      className="min-h-screen flex flex-col items-center justify-center p-4"
+      style={{
+        backgroundImage: 'url("/images/sleepingai-bg.jpg")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
       <div className="mb-8">
         <h1 className="text-6xl md:text-7xl font-light text-white tracking-tight drop-shadow-lg text-center">
           Sleeping<span className="text-purple-600 font-medium">AI</span>
         </h1>
       </div>
 
-      {/* Login Card - Smaller size */}
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-3xl">
         <h2 className="text-2xl font-medium text-gray-800 mb-8">Log In</h2>
         
-        {/* Horizontal Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - Form Fields */}
           <div className="space-y-6">
-            {/* Email Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email
@@ -120,29 +80,28 @@ export default function LoginPage() {
               <input
                 type="email"
                 name="email"
-                value={formData.email}
-                onChange={handleChange}
+                value={credentials.email}
+                onChange={updateField}
                 placeholder="Your email"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all duration-200 text-gray-700 placeholder-gray-400"
               />
             </div>
 
-            {/* Password Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
               <div className="relative">
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={passwordVisible ? "text" : "password"}
                   name="password"
-                  value={formData.password}
-                  onChange={handleChange}
+                  value={credentials.password}
+                  onChange={updateField}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all duration-200 text-gray-700 pr-12"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setPasswordVisible(!passwordVisible)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -153,17 +112,15 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Forgot Password */}
             <div className="text-right">
               <button
-                onClick={handleForgotPassword}
+                onClick={forgotPass}
                 className="text-sm text-gray-600 hover:text-purple-600 transition-colors duration-200"
               >
                 Forgot password?
               </button>
             </div>
 
-            {/* Or Login with - Centered under forgot password with lines */}
             <div className="text-center mt-8">
               <div className="flex items-center justify-center mb-4">
                 <div className="flex-1 border-t border-gray-300"></div>
@@ -171,7 +128,7 @@ export default function LoginPage() {
                 <div className="flex-1 border-t border-gray-300"></div>
               </div>
               <button
-                onClick={handleGoogleLogin}
+                onClick={googleSignIn}
                 className="flex items-center justify-center gap-2 py-2 px-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 mx-auto"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
@@ -184,15 +141,13 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Right Column - Login Button and Terms */}
           <div className="flex flex-col justify-center space-y-6">
-            {/* Login Button */}
             <button
-              onClick={handleLogin}
-              disabled={isLoading || !acceptTerms}
+              onClick={submitLogin}
+              disabled={loading || !termsAccepted}
               className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-medium transition-all duration-300 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
+              {loading ? (
                 <div className="flex items-center justify-center gap-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   Logging in...
@@ -202,26 +157,24 @@ export default function LoginPage() {
               )}
             </button>
 
-            {/* Terms Checkbox */}
             <div className="text-center">
               <label htmlFor="acceptTerms" className="text-sm text-gray-600 cursor-pointer flex items-center justify-center">
                 <input
                   type="checkbox"
                   id="acceptTerms"
-                  checked={acceptTerms}
-                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
                   className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 mr-2"
                 />
                 I accept the terms and privacy policy
               </label>
             </div>
 
-            {/* Sign Up Link - Much lower with more spacing */}
             <div className="text-center mt-20">
               <span className="text-sm text-gray-600">
-                Do not have an account?{' '}
+                Don't have an account?{' '}
                 <button
-                  onClick={handleSignUp}
+                  onClick={goToSignUp}
                   className="text-purple-600 hover:text-purple-700 font-medium hover:underline transition-colors duration-200"
                 >
                   Sign up
@@ -234,4 +187,3 @@ export default function LoginPage() {
     </div>
   );
 }
-// }

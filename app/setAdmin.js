@@ -1,34 +1,28 @@
-// setAdmin.js
-
 const admin = require('firebase-admin');
 const path = require('path');
 
-// Point this to your service account JSON downloaded from Firebase console
-const serviceAccount = require('./serviceAccountKey.json'); // <-- Change filename if needed
-
-// Initialize app
+const serviceAccount = require('./serviceAccountKey.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-// CHANGE THESE:
-const USER_UID = 'mRtqjHzonpfvKNgD94Ej4Teidyl2'; // e.g. 'q6KsD6mLRkYIt...'
+const TARGET_USER = 'mRtqjHzonpfvKNgD94Ej4Teidyl2';
 
-async function setAdminRole() {
+async function makeAdmin() {
   const db = admin.firestore();
-  const userRef = db.collection('users').doc(USER_UID);
+  const userDoc = db.collection('users').doc(TARGET_USER);
 
-  await userRef.set(
+  await userDoc.set(
     { role: 'admin' },
     { merge: true }
   );
 
-  console.log(`✅ Set 'admin' role for user ${USER_UID}`);
+  console.log(`✅ Set 'admin' role for user ${TARGET_USER}`);
   process.exit(0);
 }
 
-setAdminRole().catch(err => {
+makeAdmin().catch(err => {
   console.error(err);
   process.exit(1);
 });

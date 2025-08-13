@@ -1,43 +1,37 @@
-// app/api/generateStories/route.js
 export const runtime = 'nodejs';
 
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
 
-// --- Firebase Admin (singleton) ---------------------------------------------
 import { getApps, initializeApp, applicationDefault } from 'firebase-admin/app';
 import { getStorage } from 'firebase-admin/storage';
 
-// Expect FIREBASE_STORAGE_BUCKET like: sleepingai-5abd2.firebasestorage.app
-const BUCKET = process.env.FIREBASE_STORAGE_BUCKET;
+const BUCKET_NAME = process.env.FIREBASE_STORAGE_BUCKET;
 
 if (!getApps().length) {
   initializeApp({
-    credential: applicationDefault(),   // uses GOOGLE_APPLICATION_CREDENTIALS
-    storageBucket: BUCKET,
+    credential: applicationDefault(),
+    storageBucket: BUCKET_NAME,
   });
 }
 
-const bucket = getStorage().bucket(BUCKET);
+const storageBucket = getStorage().bucket(BUCKET_NAME);
 
-// --- OpenAI ------------------------------------------------------------------
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-// Create MP3 from text
-async function synthesizeAudio(text) {
-  const res = await openai.audio.speech.create({
+async function createAudio(text) {
+  const response = await openai.audio.speech.create({
     model: 'tts-1',
     voice: 'shimmer',
     input: text,
     response_format: 'mp3',
     speed: 1,
   });
-  return Buffer.from(await res.arrayBuffer());
+  return Buffer.from(await response.arrayBuffer());
 }
 
-// Upload to Firebase Storage and return a *Firebase alt=media* URL
-async function uploadAudio(buffer, filename) {
-  const file = bucket.file(filename);
+async function saveAudio(buffer, filename) {
+  const file = storageBucket.file(filename);
 
   await file.save(buffer, {
     resumable: false,
@@ -47,17 +41,14 @@ async function uploadAudio(buffer, filename) {
     },
   });
 
-  // Public read so browsers can fetch it directly
   await file.makePublic();
 
-  const bucketName = bucket.name; // e.g. sleepingai-5abd2.firebasestorage.app
-  // This URL is the most reliable with <audio> elements
+  const bucketName = storageBucket.name;
   return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(
     filename
   )}?alt=media`;
 }
 
-// --- Route handler -----------------------------------------------------------
 export async function POST(req) {
   try {
     const { topic, numSummaries = 1, lengthMinutes = 10 } = await req.json();
@@ -74,46 +65,46 @@ OUTPUT ONLY a JSON array like:
 ]
 `.trim();
 
-    const completion = await openai.chat.completions.create({
+    const result = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.8,
       max_tokens: 400,
     });
 
-    const raw = completion.choices?.[0]?.message?.content ?? '';
-    const match = raw.match(/\[.*\]/s);
-    if (!match) {
+    const rawText = result.choices?.[0]?.message?.content ?? '';
+    const jsonMatch = rawText.match(/\[.*\]/s);
+    if (!jsonMatch) {
       return NextResponse.json({ error: 'AI returned no JSON array' }, { status: 500 });
     }
 
-    const stories = JSON.parse(match[0]);
+    const storyList = JSON.parse(jsonMatch[0]);
 
-    const storiesWithAudio = await Promise.all(
-      stories.map(async (s) => {
+    const finalStories = await Promise.all(
+      storyList.map(async (story) => {
         try {
-          const text = `${s.title}. ${s.summary}`;
-          const audioBuffer = await synthesizeAudio(text);
+          const fullText = `${story.title}. ${story.summary}`;
+          const audioData = await createAudio(fullText);
 
-          const safeTitle = (s.title || 'story')
+          const cleanTitle = (story.title || 'story')
             .toString()
             .replace(/[^a-z0-9]+/gi, '_')
             .toLowerCase();
 
-          const filename = `stories_audio/${Date.now()}_${safeTitle}_${
+          const audioFile = `stories_audio/${Date.now()}_${cleanTitle}_${
             Math.floor(Math.random() * 1e6)
           }.mp3`;
 
-          const audioUrl = await uploadAudio(audioBuffer, filename);
-          return { ...s, audioUrl };
+          const audioUrl = await saveAudio(audioData, audioFile);
+          return { ...story, audioUrl };
         } catch (e) {
           console.error('Audio gen/upload failed:', e);
-          return { ...s, audioUrl: null };
+          return { ...story, audioUrl: null };
         }
       })
     );
 
-    return NextResponse.json({ stories: storiesWithAudio });
+    return NextResponse.json({ stories: finalStories });
   } catch (err) {
     console.error('Generation error:', err);
     return NextResponse.json({ error: 'Generation failed' }, { status: 500 });

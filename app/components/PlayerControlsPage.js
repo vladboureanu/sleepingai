@@ -3,63 +3,59 @@
 import { useState, useEffect } from 'react';
 
 export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumber", narrator = "Emily", darkMode, setDarkMode }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(22); // 0:22
-  const [duration, setDuration] = useState(262); // 4:22
-  const [volume, setVolume] = useState(80);
-  const [isMuted, setIsMuted] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [timeNow, setTimeNow] = useState(22);
+  const [totalTime, setTotalTime] = useState(262);
+  const [audioLevel, setAudioLevel] = useState(80);
+  const [muted, setMuted] = useState(false);
 
-  // Format time in mm:ss
-  const formatTime = (seconds) => {
+  const timeFormat = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Calculate progress percentage
-  const progressPercentage = (currentTime / duration) * 100;
+  const progressPercent = (timeNow / totalTime) * 100;
 
-  const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
+  const togglePlay = () => {
+    setPlaying(!playing);
   };
 
-  const handlePrevious = () => {
+  const goBack = () => {
     console.log('Previous track');
   };
 
-  const handleNext = () => {
+  const goForward = () => {
     console.log('Next track');
   };
 
-  const handleProgressChange = (e) => {
+  const seekTo = (e) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const clickX = e.clientX - rect.left;
     const newProgress = (clickX / rect.width) * 100;
-    const newTime = Math.floor((newProgress / 100) * duration);
-    setCurrentTime(newTime);
+    const newTime = Math.floor((newProgress / 100) * totalTime);
+    setTimeNow(newTime);
   };
 
-  const handleVolumeChange = (e) => {
-    setVolume(parseInt(e.target.value));
+  const changeVolume = (e) => {
+    setAudioLevel(parseInt(e.target.value));
     if (parseInt(e.target.value) === 0) {
-      setIsMuted(true);
+      setMuted(true);
     } else {
-      setIsMuted(false);
+      setMuted(false);
     }
   };
 
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
+  const toggleMuted = () => {
+    setMuted(!muted);
   };
 
   return (
     <>
-      {/* Site-wide dark overlay when dark mode is active */}
       {darkMode && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-0 transition-opacity duration-300"></div>
       )}
       
-      {/* Make background text more readable in dark mode */}
       <style jsx global>{`
         ${darkMode ? `
           .bg-gradient-to-br {
@@ -75,7 +71,6 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
         darkMode ? 'bg-gray-800 text-white' : 'bg-white'
       }`}>
         
-        {/* Header */}
         <div className="flex items-center justify-center mb-6 relative">        
           <h1 className={`text-xl font-semibold flex items-center transition-colors duration-300 ${
             darkMode ? 'text-white' : 'text-gray-800'
@@ -130,7 +125,6 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
           </div>
         </div>
 
-        {/* Story Text Content - Full text visible */}
         <div className={`mb-6 p-4 rounded-2xl transition-colors duration-300 ${
           darkMode ? 'bg-gray-700' : 'bg-gray-50'
         }`}>
@@ -141,11 +135,9 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
           </p>
         </div>
 
-        {/* Compact Audio Player - Horizontal Design */}
         <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-2xl p-4 text-white">
           <div className="flex items-center gap-4">
             
-            {/* Album Art - Smaller */}
             <div className="flex-shrink-0">
               <div className="w-16 h-16 bg-gradient-to-br from-teal-400 to-blue-500 rounded-lg overflow-hidden">
                 <img 
@@ -156,13 +148,11 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
               </div>
             </div>
 
-            {/* Track Info - Compact */}
             <div className="min-w-0">
               <h3 className="font-bold text-base text-white truncate">{storyTitle}</h3>
               <p className="text-purple-100 text-sm">{narrator}</p>
             </div>
 
-            {/* Action Buttons - Left side */}
             <div className="flex items-center gap-2 ml-4">
               <button className="p-2 rounded-full bg-purple-500 hover:bg-purple-400 transition-all duration-200">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -177,10 +167,9 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
               </button>
             </div>
 
-            {/* Main Playback Controls - Center */}
             <div className="flex items-center gap-1 mx-8">
               <button 
-                onClick={handlePrevious}
+                onClick={goBack}
                 className="p-2 hover:bg-purple-500 rounded-full transition-all duration-200"
               >
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -189,10 +178,10 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
               </button>
 
               <button 
-                onClick={handlePlayPause}
+                onClick={togglePlay}
                 className="p-3 bg-white rounded-full text-purple-600 hover:bg-gray-100 transition-all duration-200 shadow-lg mx-2"
               >
-                {isPlaying ? (
+                {playing ? (
                   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/>
                   </svg>
@@ -204,7 +193,7 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
               </button>
 
               <button 
-                onClick={handleNext}
+                onClick={goForward}
                 className="p-2 hover:bg-purple-500 rounded-full transition-all duration-200"
               >
                 <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -213,25 +202,24 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
               </button>
             </div>
 
-            {/* Progress Bar Section - Takes remaining space */}
             <div className="flex-1 mx-4">
               <div className="flex items-center gap-2 text-sm">
-                <span className="text-purple-100 text-xs">{formatTime(currentTime)}</span>
+                <span className="text-purple-100 text-xs">{timeFormat(timeNow)}</span>
                 
                 <div 
                   className="flex-1 h-1 bg-purple-400 rounded-full cursor-pointer relative"
-                  onClick={handleProgressChange}
+                  onClick={seekTo}
                 >
                   <div 
                     className="h-full bg-white rounded-full relative"
-                    style={{ width: `${progressPercentage}%` }}
+                    style={{ width: `${progressPercent}%` }}
                   >
                     <div className="absolute right-0 top-1/2 transform translate-x-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow-lg"></div>
                   </div>
                 </div>
                 
                 <span className="text-purple-100 text-xs flex items-center gap-1">
-                  {formatTime(duration)}
+                  {timeFormat(totalTime)}
                   <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
                   </svg>
@@ -239,9 +227,7 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
               </div>
             </div>
 
-            {/* Right Side Controls */}
             <div className="flex items-center gap-2">
-              {/* Additional Controls */}
               <button className="p-2 hover:bg-purple-500 rounded-full transition-all duration-200">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
@@ -254,11 +240,10 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
                 </svg>
               </button>
 
-              {/* Volume Control */}
               <div className="flex items-center gap-1">
-                <button onClick={toggleMute} className="p-1">
+                <button onClick={toggleMuted} className="p-1">
                   <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    {isMuted || volume === 0 ? (
+                    {muted || audioLevel === 0 ? (
                       <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
                     ) : (
                       <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
@@ -270,16 +255,15 @@ export default function PlayerControls({ onNavigate, storyTitle = "Road to Slumb
                   type="range"
                   min="0"
                   max="100"
-                  value={isMuted ? 0 : volume}
-                  onChange={handleVolumeChange}
+                  value={muted ? 0 : audioLevel}
+                  onChange={changeVolume}
                   className="w-16 h-1 bg-purple-300 rounded-lg appearance-none cursor-pointer"
                   style={{
-                    background: `linear-gradient(to right, white 0%, white ${isMuted ? 0 : volume}%, rgba(255,255,255,0.3) ${isMuted ? 0 : volume}%, rgba(255,255,255,0.3) 100%)`
+                    background: `linear-gradient(to right, white 0%, white ${muted ? 0 : audioLevel}%, rgba(255,255,255,0.3) ${muted ? 0 : audioLevel}%, rgba(255,255,255,0.3) 100%)`
                   }}
                 />
               </div>
 
-              {/* Fullscreen */}
               <button className="p-2 hover:bg-purple-500 rounded-full transition-all duration-200">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />

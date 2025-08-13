@@ -3,23 +3,21 @@
 import { useState } from 'react';
 
 export default function PaymentPage({ onNavigate, darkMode = false }) {
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [cvc, setCvc] = useState('');
-  const [cardholderName, setCardholderName] = useState('');
-  const [country, setCountry] = useState('United Kingdom');
-  const [postcode, setPostcode] = useState('');
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [cardNum, setCardNum] = useState('');
+  const [expiry, setExpiry] = useState('');
+  const [cvv, setCvv] = useState('');
+  const [holderName, setHolderName] = useState('');
+  const [region, setRegion] = useState('United Kingdom');
+  const [zipCode, setZipCode] = useState('');
+  const [paymentDone, setPaymentDone] = useState(false);
 
-  const handlePayment = () => {
+  const processPayment = () => {
     console.log('Processing payment...');
-    setPaymentSuccess(true);
+    setPaymentDone(true);
   };
 
-  const formatCardNumber = (value) => {
-    // Remove all non-digits
+  const formatCard = (value) => {
     const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
-    // Add spaces every 4 digits
     const matches = v.match(/\d{4,16}/g);
     const match = matches && matches[0] || '';
     const parts = [];
@@ -33,14 +31,14 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
     }
   };
 
-  const handleCardNumberChange = (e) => {
-    const formatted = formatCardNumber(e.target.value);
-    if (formatted.length <= 19) { // Max length with spaces
-      setCardNumber(formatted);
+  const updateCardNum = (e) => {
+    const formatted = formatCard(e.target.value);
+    if (formatted.length <= 19) {
+      setCardNum(formatted);
     }
   };
 
-  const formatExpiryDate = (value) => {
+  const formatDate = (value) => {
     const v = value.replace(/\D/g, '');
     if (v.length >= 2) {
       return v.substring(0, 2) + '/' + v.substring(2, 4);
@@ -48,28 +46,25 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
     return v;
   };
 
-  const handleExpiryChange = (e) => {
-    const formatted = formatExpiryDate(e.target.value);
+  const updateExpiry = (e) => {
+    const formatted = formatDate(e.target.value);
     if (formatted.length <= 5) {
-      setExpiryDate(formatted);
+      setExpiry(formatted);
     }
   };
 
   return (
     <>
-      {/* Site-wide dark overlay when dark mode is active - matching HomePage */}
       {darkMode && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-0 transition-opacity duration-300"></div>
       )}
 
-      {/* Main Content Container - matching Header backdrop styling */}
       <div className={`backdrop-blur-md rounded-3xl shadow-2xl border transition-all duration-300 p-4 max-w-5xl mx-auto relative z-10 ${
         darkMode 
           ? 'bg-gray-800 bg-opacity-90 border-gray-700' 
           : 'bg-white bg-opacity-90 border-white border-opacity-30'
       }`}>
         
-        {/* Payment Header with icon - centered, matching Header font weights */}
         <div className="flex items-center justify-center mb-4">
           <h1 className={`text-xl font-light text-center tracking-tight transition-colors duration-300 flex items-center ${
             darkMode ? 'text-white' : 'text-gray-800'
@@ -80,7 +75,6 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
             </svg>
             Payment Details
           </h1>
-          {/* Back button in top-right corner - matching Header button styling */}
           <button 
             onClick={() => onNavigate('credits')}
             className={`absolute top-4 right-4 backdrop-blur-sm rounded-xl p-2 transition-all duration-300 shadow-lg border ${
@@ -95,13 +89,10 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
           </button>
         </div>
 
-        {/* Main Content Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Left Column - Payment Form */}
           <div className="space-y-4 px-2">
           
-            {/* Card Information */}
             <div>
               <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
                 darkMode ? 'text-gray-200' : 'text-gray-600'
@@ -109,45 +100,39 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
                 Card information
               </label>
               
-              {/* Card Number with icons */}
               <div className="relative">
                 <input
                   type="text"
                   placeholder="1234 1234 1234 1234"
-                  value={cardNumber}
-                  onChange={handleCardNumberChange}
+                  value={cardNum}
+                  onChange={updateCardNum}
                   className={`w-full px-3 py-2 border rounded-t-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-300 ${
                     darkMode 
                       ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                       : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                   }`}
                 />
-                {/* Card type icons */}
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex space-x-1">
-                  {/* Visa */}
                   <div className="w-8 h-5 bg-white border border-gray-300 rounded text-blue-600 text-xs flex items-center justify-center font-bold">
                     VISA
                   </div>
-                  {/* Mastercard */}
                   <div className="w-8 h-5 bg-black rounded flex items-center justify-center relative">
                     <div className="w-2 h-2 bg-red-500 rounded-full absolute" style={{left: '50%', transform: 'translateX(-75%)'}}></div>
                     <div className="w-2 h-2 bg-yellow-400 rounded-full absolute" style={{left: '50%', transform: 'translateX(-25%)'}}></div>
                     <div className="w-1 h-2 bg-orange-500 rounded-full absolute" style={{left: '50%', transform: 'translateX(-50%)'}}></div>
                   </div>
-                  {/* American Express */}
                   <div className="w-8 h-5 bg-blue-600 rounded text-white text-xs flex items-center justify-center font-bold">
                     AMEX
                   </div>
                 </div>
               </div>
               
-              {/* Expiry and CVC */}
               <div className="flex">
                 <input
                   type="text"
                   placeholder="MM / YY"
-                  value={expiryDate}
-                  onChange={handleExpiryChange}
+                  value={expiry}
+                  onChange={updateExpiry}
                   className={`flex-1 px-3 py-2 border border-t-0 border-r-0 rounded-bl-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-300 ${
                     darkMode 
                       ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -158,15 +143,14 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
                   <input
                     type="text"
                     placeholder="CVC"
-                    value={cvc}
-                    onChange={(e) => setCvc(e.target.value.replace(/\D/g, '').substring(0, 4))}
+                    value={cvv}
+                    onChange={(e) => setCvv(e.target.value.replace(/\D/g, '').substring(0, 4))}
                     className={`w-full px-3 py-2 border border-t-0 rounded-br-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-300 ${
                       darkMode 
                         ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
                         : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
                     }`}
                   />
-                  {/* CVC info icon */}
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                     <svg className={`w-4 h-4 transition-colors duration-300 ${
                       darkMode ? 'text-gray-400' : 'text-gray-400'
@@ -178,7 +162,6 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
               </div>
             </div>
 
-            {/* Cardholder Name */}
             <div>
               <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
                 darkMode ? 'text-gray-200' : 'text-gray-600'
@@ -188,8 +171,8 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
               <input
                 type="text"
                 placeholder="Full name on card"
-                value={cardholderName}
-                onChange={(e) => setCardholderName(e.target.value)}
+                value={holderName}
+                onChange={(e) => setHolderName(e.target.value)}
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-300 ${
                   darkMode 
                     ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -198,7 +181,6 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
               />
             </div>
 
-            {/* Country/Region and Postcode */}
             <div>
               <label className={`block text-sm font-medium mb-2 transition-colors duration-300 ${
                 darkMode ? 'text-gray-200' : 'text-gray-600'
@@ -206,8 +188,8 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
                 Country or region
               </label>
               <select
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
+                value={region}
+                onChange={(e) => setRegion(e.target.value)}
                 className={`w-full px-3 py-2 border rounded-t-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-300 ${
                   darkMode 
                     ? 'bg-gray-700 border-gray-600 text-white' 
@@ -227,8 +209,8 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
               <input
                 type="text"
                 placeholder="Postcode"
-                value={postcode}
-                onChange={(e) => setPostcode(e.target.value)}
+                value={zipCode}
+                onChange={(e) => setZipCode(e.target.value)}
                 className={`w-full px-3 py-2 border border-t-0 rounded-b-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors duration-300 ${
                   darkMode 
                     ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
@@ -237,9 +219,8 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
               />
             </div>
 
-            {/* Pay Button - matching HomePage button styling */}
             <button
-              onClick={handlePayment}
+              onClick={processPayment}
               className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-medium py-3 px-6 rounded-lg transition-all duration-300 text-base shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               Pay
@@ -247,25 +228,21 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
             
           </div>
           
-          {/* Right Column - Success Message or Empty Space */}
           <div className="hidden lg:block">
-            {paymentSuccess ? (
+            {paymentDone ? (
               <div className="flex flex-col items-center justify-center h-full space-y-4">
-                {/* Success checkmark */}
                 <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-purple-700 rounded-full flex items-center justify-center">
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
                 
-                {/* Success message */}
                 <h3 className={`text-lg font-medium text-center transition-colors duration-300 ${
                   darkMode ? 'text-white' : 'text-gray-800'
                 }`} style={{ textShadow: darkMode ? '1px 1px 3px rgba(0,0,0,0.8)' : '' }}>
                   Payment Successful
                 </h3>
                 
-                {/* PDF Receipt button */}
                 <button className={`flex items-center justify-center px-4 py-2 border rounded-lg transition-all duration-300 ${
                   darkMode 
                     ? 'border-gray-600 text-gray-300 hover:bg-gray-700' 
@@ -278,7 +255,6 @@ export default function PaymentPage({ onNavigate, darkMode = false }) {
                 </button>
               </div>
             ) : (
-              /* This space is intentionally left blank when payment not successful */
               <div></div>
             )}
           </div>

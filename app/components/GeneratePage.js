@@ -1,339 +1,418 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import 'swiper/swiper-bundle.css';
+import { useState } from 'react';
 
-// Firebase
-import { auth, db } from '../firebase';
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  doc,
-  getDoc,
-  updateDoc,
-  increment,
-} from 'firebase/firestore';
+export default function GeneratePage({ onNavigate, darkMode = false }) {
+  const [pickedTopics, setPickedTopics] = useState([]);
+  const [bgMusic, setBgMusic] = useState('soft-piano');
+  const [narrator, setNarrator] = useState('female');
+  const [storyTitle, setStoryTitle] = useState('');
+  const [extraPrompt, setExtraPrompt] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [successModal, setSuccessModal] = useState(false);
 
-export default function GeneratePage({ onNavigate }) {
-  const topicOptions = [
-    'Nature',
-    'Music',
-    'Science',
-    'Inventions & Technology',
-    'Space & Astronomy',
-    'Mythology',
-    'Mindfulness & Emotions',
-    'History',
+  const topics = [
+    { id: 'nature', label: 'Nature' },
+    { id: 'music', label: 'Music' },
+    { id: 'science', label: 'Science' },
+    { id: 'inventions', label: 'Inventions & Technology' },
+    { id: 'space', label: 'Space & Astronomy' },
+    { id: 'mythology', label: 'Mythology' },
+    { id: 'mindfulness', label: 'Mindfulness & Emotions' },
+    { id: 'history', label: 'History' }
   ];
 
-  // IDs must match your /public/music filenames (no hyphen for "no music")
-  const musicOptions = [
-    { id: 'ambience',     label: 'Ambience' },
-    { id: 'rainthunder',  label: 'Rain & Thunder' },
-    { id: 'naturesounds', label: 'Nature Sounds' },
-    { id: 'nomusic',      label: 'No Music' },
+  const audioOptions = [
+    { id: 'ambient', label: 'Ambient' },
+    { id: 'soft-piano', label: 'Soft Piano' },
+    { id: 'nature-sounds', label: 'Nature Sounds' },
+    { id: 'no-music', label: 'No Music' }
   ];
 
-  const storyPrompts = [
-    'Add a peaceful twist at the end',
-    'Make it feel like a dream',
-    'Include a moment of wonder',
-    'Let the story begin with a surprise',
-    'End with a calming message',
-  ];
-
-  const [selectedTopic,   setSelectedTopic]   = useState('');
-  const [lengthMinutes,   setLengthMinutes]   = useState(10);
-  const [voice,           setVoice]           = useState('female');
-  const [backgroundMusic, setBackgroundMusic] = useState('nomusic'); // <- fixed
-  const [customPrompt,    setCustomPrompt]    = useState('');
-  const [isGenerating,    setIsGenerating]    = useState(false);
-  const [apiError,        setApiError]        = useState(null);
-  const [summaries,       setSummaries]       = useState([]);
-
-  // ---------- helpers ----------
-  const saveToLocal = (stories) => {
-    try {
-      const existing = JSON.parse(localStorage.getItem('myStories') || '[]');
-      const stamped  = stories.map(s => ({
-        ...s,
-        topic:           selectedTopic,
-        lengthMin:       lengthMinutes,
-        voice,
-        backgroundMusic,
-        customPrompt,
-        savedAt:         new Date().toISOString(),
-      }));
-      localStorage.setItem('myStories', JSON.stringify([...stamped, ...existing]));
-    } catch (e) {
-      console.error('Error saving to localStorage', e);
-    }
+  const toggleTopic = (topicId) => {
+    setPickedTopics(prev => 
+      prev.includes(topicId) 
+        ? prev.filter(id => id !== topicId)
+        : [...prev, topicId]
+    );
   };
 
-  // Save to Firestore and return stories WITH doc ids
-  const saveToFirestore = async (stories) => {
-    try {
-      const user = auth.currentUser;
-      if (!user) return stories;
-
-      const colRef = collection(db, 'users', user.uid, 'stories');
-      const created = [];
-      for (const s of stories) {
-        const ref = await addDoc(colRef, {
-          title:            s.title,
-          summary:          s.summary,
-          topic:            selectedTopic,
-          lengthMin:        lengthMinutes,
-          voice,
-          backgroundMusic,
-          customPrompt,
-          audioUrl:         s.audioUrl || null, // keep audio if your API returned it
-          isPublic:         false,
-          createdAt:        serverTimestamp(),
-        });
-        created.push({ ...s, id: ref.id, isPublic: false });
-      }
-      return created;
-    } catch (e) {
-      console.error('Error writing to Firestore', e);
-      return stories; // don’t break UI if write fails
-    }
-  };
-
-  // Credit check & debit
-  const debitCredits = async (cost = 1) => {
-    const user = auth.currentUser;
-    if (!user) {
-      alert('You must be logged in.');
-      return { ok: false, userRef: null, cost };
-    }
-    const userRef = doc(db, 'users', user.uid);
-    const snap = await getDoc(userRef);
-    if (!snap.exists()) {
-      alert('User not found. Try logging out and back in.');
-      return { ok: false, userRef, cost };
-    }
-    const current = snap.data().credits || 0;
-    if (current < cost) {
-      alert('Not enough credits! Please buy more credits to generate a story.');
-      return { ok: false, userRef, cost };
-    }
-    await updateDoc(userRef, { credits: increment(-cost) });
-    return { ok: true, userRef, cost };
-  };
-
-  // Generate handler
-  const handleGenerate = async () => {
-    if (!selectedTopic) {
-      alert('Please pick a topic first!');
+  const createStory = async () => {
+    if (pickedTopics.length === 0) {
+      alert('Please select at least one topic!');
       return;
     }
 
-    setIsGenerating(true);
-    setApiError(null);
-
-    // 1) debit first
-    const { ok, userRef, cost } = await debitCredits(1);
-    if (!ok) {
-      setIsGenerating(false);
-      return;
-    }
-
+    setCreating(true);
+    
     try {
-      // 2) call API
-      const res = await fetch('/api/generateStories', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          topic:         selectedTopic,
-          numSummaries:  1,
-          lengthMinutes,
-          voice,
-          backgroundMusic,
-          customPrompt,
-        }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || res.statusText);
-      }
-
-      const { stories: fetched } = await res.json(); // [{title, summary, audioUrl?}]
-      // 3) store in FS and local (with ids)
-      const stored = await saveToFirestore(fetched);
-      saveToLocal(stored);
-      setSummaries(stored);
-    } catch (err) {
-      console.error(err);
-      setApiError(err.message || 'Generation failed');
-      // 4) refund if anything above failed
-      if (userRef) {
-        await updateDoc(userRef, { credits: increment(cost) }).catch(() => {});
-      }
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      setSuccessModal(true);
+    } catch (error) {
+      console.error('Error generating story:', error);
+      alert('Sorry, there was an error generating your story. Please try again.');
     } finally {
-      setIsGenerating(false);
+      setCreating(false);
     }
   };
 
-  // ---------- UI ----------
-  if (summaries.length === 0) {
-    return (
-      <div className="bg-white rounded-3xl shadow p-6 max-w-2xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-4">Generate Your Bedtime Story</h1>
+  return (
+    <>
+      {darkMode && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-0 transition-opacity duration-300"></div>
+      )}
 
-        {/* Topic */}
-        <label className="block mb-4">
-          <span className="block font-medium mb-1">Topic</span>
-          <select
-            value={selectedTopic}
-            onChange={e => setSelectedTopic(e.target.value)}
-            className="w-full border rounded px-3 py-2"
+      <div className={`rounded-3xl shadow-2xl backdrop-blur-sm bg-opacity-95 p-6 max-w-7xl mx-auto relative z-10 transition-all duration-300 ${
+        darkMode ? 'bg-gray-800' : 'bg-white'
+      }`}>
+        
+        <div className="flex items-center justify-between mb-6">
+          <h1 className={`text-xl font-semibold flex items-center transition-colors duration-300 ${
+            darkMode ? 'text-white' : 'text-gray-800'
+          }`}>
+            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+            </svg>
+            Generate
+          </h1>
+          <button 
+            onClick={() => onNavigate('home')}
+            className={`p-2 rounded-full transition-all duration-300 ${
+              darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'
+            }`}
           >
-            <option value="">— select a topic —</option>
-            {topicOptions.map(t => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
-        </label>
-
-        {/* Length */}
-        <label className="block mb-4">
-          <span className="block font-medium mb-1">Narration Length</span>
-          <div className="flex space-x-6">
-            {[5, 10, 20].map(n => (
-              <label key={n} className="flex items-center space-x-1">
-                <input
-                  type="radio"
-                  name="length"
-                  value={n}
-                  checked={lengthMinutes === n}
-                  onChange={() => setLengthMinutes(n)}
-                  className="form-radio"
-                />
-                <span>{n} min</span>
-              </label>
-            ))}
+            <svg className={`w-6 h-6 transition-colors duration-300 ${
+              darkMode ? 'text-gray-300' : 'text-gray-700'
+            }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          
+          <div>
+            <h2 className={`text-lg font-bold mb-4 transition-colors duration-300 ${
+              darkMode ? 'text-white' : 'text-gray-800'
+            }`}>Topic</h2>
+            <div className="grid grid-cols-1 gap-2">
+              {topics.map((topic) => (
+                <label key={topic.id} className="flex items-center cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={pickedTopics.includes(topic.id)}
+                    onChange={() => toggleTopic(topic.id)}
+                    className="sr-only"
+                  />
+                  <div className={`flex items-center justify-center w-4 h-4 border-2 rounded mr-3 transition-all duration-200 ${
+                    pickedTopics.includes(topic.id)
+                      ? 'bg-purple-600 border-purple-600'
+                      : (darkMode 
+                        ? 'border-gray-500 group-hover:border-purple-400' 
+                        : 'border-gray-400 group-hover:border-purple-400')
+                  }`}>
+                    {pickedTopics.includes(topic.id) && (
+                      <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <span className={`text-sm transition-colors duration-200 ${
+                    pickedTopics.includes(topic.id) 
+                      ? 'text-purple-700 font-medium' 
+                      : (darkMode 
+                        ? 'text-gray-300 group-hover:text-purple-400' 
+                        : 'text-gray-700 group-hover:text-purple-600')
+                  }`}>
+                    {topic.label}
+                  </span>
+                </label>
+              ))}
+            </div>
           </div>
-        </label>
 
-        {/* Voice */}
-        <label className="block mb-4">
-          <span className="block font-medium mb-1">Voice</span>
-          <div className="flex space-x-6">
-            {['female','male'].map(v => (
-              <label key={v} className="flex items-center space-x-1">
-                <input
-                  type="radio"
-                  name="voice"
-                  value={v}
-                  checked={voice === v}
-                  onChange={() => setVoice(v)}
-                  className="form-radio"
-                />
-                <span>{v.charAt(0).toUpperCase()+v.slice(1)}</span>
-              </label>
-            ))}
+          <div className="space-y-6">
+            <div>
+              <h2 className={`text-lg font-bold mb-4 transition-colors duration-300 ${
+                darkMode ? 'text-white' : 'text-gray-800'
+              }`}>Background Music</h2>
+              <div className="space-y-2">
+                {audioOptions.map((music) => (
+                  <label key={music.id} className="flex items-center cursor-pointer group">
+                    <input
+                      type="radio"
+                      name="backgroundMusic"
+                      value={music.id}
+                      checked={bgMusic === music.id}
+                      onChange={(e) => setBgMusic(e.target.value)}
+                      className="sr-only"
+                    />
+                    <div className={`flex items-center justify-center w-4 h-4 border-2 rounded-full mr-3 transition-all duration-200 ${
+                      bgMusic === music.id
+                        ? 'bg-purple-600 border-purple-600'
+                        : (darkMode 
+                          ? 'border-gray-500 group-hover:border-purple-400' 
+                          : 'border-gray-400 group-hover:border-purple-400')
+                    }`}>
+                      {bgMusic === music.id && (
+                        <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                    <span className={`text-sm transition-colors duration-200 ${
+                      bgMusic === music.id 
+                        ? 'text-purple-700 font-medium' 
+                        : (darkMode 
+                          ? 'text-gray-300 group-hover:text-purple-400' 
+                          : 'text-gray-700 group-hover:text-purple-600')
+                    }`}>
+                      {music.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <h2 className={`text-lg font-bold mb-4 transition-colors duration-300 ${
+                darkMode ? 'text-white' : 'text-gray-800'
+              }`}>Voice</h2>
+              <div className="space-y-2">
+                <label className="flex items-center cursor-pointer group">
+                  <input
+                    type="radio"
+                    name="voice"
+                    value="female"
+                    checked={narrator === 'female'}
+                    onChange={(e) => setNarrator(e.target.value)}
+                    className="sr-only"
+                  />
+                  <div className={`flex items-center justify-center w-4 h-4 border-2 rounded-full mr-3 transition-all duration-200 ${
+                    narrator === 'female'
+                      ? 'bg-purple-600 border-purple-600'
+                      : (darkMode 
+                        ? 'border-gray-500 group-hover:border-purple-400' 
+                        : 'border-gray-400 group-hover:border-purple-400')
+                  }`}>
+                    {narrator === 'female' && (
+                      <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                    )}
+                  </div>
+                  <span className={`text-sm transition-colors duration-200 ${
+                    narrator === 'female' 
+                      ? 'text-purple-700 font-medium' 
+                      : (darkMode 
+                        ? 'text-gray-300 group-hover:text-purple-400' 
+                        : 'text-gray-700 group-hover:text-purple-600')
+                  }`}>
+                    Female
+                  </span>
+                </label>
+                
+                <label className="flex items-center cursor-pointer group">
+                  <input
+                    type="radio"
+                    name="voice"
+                    value="male"
+                    checked={narrator === 'male'}
+                    onChange={(e) => setNarrator(e.target.value)}
+                    className="sr-only"
+                  />
+                  <div className={`flex items-center justify-center w-4 h-4 border-2 rounded-full mr-3 transition-all duration-200 ${
+                    narrator === 'male'
+                      ? 'bg-purple-600 border-purple-600'
+                      : (darkMode 
+                        ? 'border-gray-500 group-hover:border-purple-400' 
+                        : 'border-gray-400 group-hover:border-purple-400')
+                  }`}>
+                    {narrator === 'male' && (
+                      <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                    )}
+                  </div>
+                  <span className={`text-sm transition-colors duration-200 ${
+                    narrator === 'male' 
+                      ? 'text-purple-700 font-medium' 
+                      : (darkMode 
+                        ? 'text-gray-300 group-hover:text-purple-400' 
+                        : 'text-gray-700 group-hover:text-purple-600')
+                  }`}>
+                    Male
+                  </span>
+                </label>
+              </div>
+            </div>
           </div>
-        </label>
 
-        {/* Background Music */}
-        <label className="block mb-4">
-          <span className="block font-medium mb-1">Background Music</span>
-          <div className="flex space-x-6">
-            {musicOptions.map(m => (
-              <label key={m.id} className="flex items-center space-x-1">
+          <div className="space-y-6">
+            <div>
+              <h2 className={`text-lg font-bold mb-4 transition-colors duration-300 ${
+                darkMode ? 'text-white' : 'text-gray-800'
+              }`}>Add title</h2>
+              <input
+                type="text"
+                placeholder="e.g., 'New York 1970'"
+                value={storyTitle}
+                onChange={(e) => setStoryTitle(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm transition-all duration-300 ${
+                  darkMode 
+                    ? 'border-gray-600 bg-gray-700 text-gray-200 placeholder-gray-400' 
+                    : 'border-gray-300 bg-white text-gray-700 placeholder-gray-500'
+                }`}
+              />
+            </div>
+
+            <div>
+              <div className={`flex items-center rounded-xl p-3 mb-4 transition-colors duration-300 ${
+                darkMode ? 'bg-gray-700' : 'bg-gray-100'
+              }`}>
+                <svg className={`w-5 h-5 mr-2 transition-colors duration-300 ${
+                  darkMode ? 'text-gray-400' : 'text-gray-400'
+                }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                </svg>
                 <input
-                  type="radio"
-                  name="music"
-                  value={m.id}
-                  checked={backgroundMusic === m.id}
-                  onChange={() => setBackgroundMusic(m.id)}
-                  className="form-radio"
+                  type="text"
+                  placeholder="Anything else you'd like to add?..."
+                  value={extraPrompt}
+                  onChange={(e) => setExtraPrompt(e.target.value)}
+                  className={`flex-1 bg-transparent focus:outline-none text-sm transition-colors duration-300 ${
+                    darkMode ? 'text-gray-200 placeholder-gray-400' : 'text-gray-700 placeholder-gray-500'
+                  }`}
                 />
-                <span>{m.label}</span>
-              </label>
-            ))}
-          </div>
-        </label>
+              </div>
+            </div>
 
-        {/* Prompt chips */}
-        <div className="mb-4">
-          <span className="block font-medium mb-1">Enhance your story:</span>
-          <div className="flex flex-wrap gap-2">
-            {storyPrompts.map(p => (
-              <button
-                key={p}
-                onClick={() => setCustomPrompt(cp => cp ? `${cp} ${p}` : p)}
-                className="px-3 py-1 border border-purple-300 rounded-full text-purple-700 hover:bg-purple-50 text-xs"
-              >
-                {p}
-              </button>
-            ))}
+            <div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setExtraPrompt(prev => prev ? `${prev} Add a peaceful twist at the end` : 'Add a peaceful twist at the end')}
+                  className={`px-3 py-1.5 border-2 rounded-full text-xs font-medium transition-all duration-200 transform hover:scale-105 ${
+                    darkMode 
+                      ? 'border-purple-400 hover:border-purple-300 text-purple-300 hover:text-purple-200 bg-gray-700 hover:bg-gray-600' 
+                      : 'border-purple-300 hover:border-purple-500 text-purple-700 hover:text-purple-800 bg-white hover:bg-purple-50'
+                  }`}
+                >
+                  Add a peaceful twist at the end
+                </button>
+                <button
+                  onClick={() => setExtraPrompt(prev => prev ? `${prev} Make it feel like a dream` : 'Make it feel like a dream')}
+                  className={`px-3 py-1.5 border-2 rounded-full text-xs font-medium transition-all duration-200 transform hover:scale-105 ${
+                    darkMode 
+                      ? 'border-purple-400 hover:border-purple-300 text-purple-300 hover:text-purple-200 bg-gray-700 hover:bg-gray-600' 
+                      : 'border-purple-300 hover:border-purple-500 text-purple-700 hover:text-purple-800 bg-white hover:bg-purple-50'
+                  }`}
+                >
+                  Make it feel like a dream
+                </button>
+                <button
+                  onClick={() => setExtraPrompt(prev => prev ? `${prev} Include a moment of wonder` : 'Include a moment of wonder')}
+                  className={`px-3 py-1.5 border-2 rounded-full text-xs font-medium transition-all duration-200 transform hover:scale-105 ${
+                    darkMode 
+                      ? 'border-purple-400 hover:border-purple-300 text-purple-300 hover:text-purple-200 bg-gray-700 hover:bg-gray-600' 
+                      : 'border-purple-300 hover:border-purple-500 text-purple-700 hover:text-purple-800 bg-white hover:bg-purple-50'
+                  }`}
+                >
+                  Include a moment of wonder
+                </button>
+                <button
+                  onClick={() => setExtraPrompt(prev => prev ? `${prev} End with a calming message` : 'End with a calming message')}
+                  className={`px-3 py-1.5 border-2 rounded-full text-xs font-medium transition-all duration-200 transform hover:scale-105 ${
+                    darkMode 
+                      ? 'border-purple-400 hover:border-purple-300 text-purple-300 hover:text-purple-200 bg-gray-700 hover:bg-gray-600' 
+                      : 'border-purple-300 hover:border-purple-500 text-purple-700 hover:text-purple-800 bg-white hover:bg-purple-50'
+                  }`}
+                >
+                  End with a calming message
+                </button>
+                <button
+                  onClick={() => setExtraPrompt(prev => prev ? `${prev} Let the story begin with a surprise` : 'Let the story begin with a surprise')}
+                  className={`px-3 py-1.5 border-2 rounded-full text-xs font-medium transition-all duration-200 transform hover:scale-105 ${
+                    darkMode 
+                      ? 'border-purple-400 hover:border-purple-300 text-purple-300 hover:text-purple-200 bg-gray-700 hover:bg-gray-600' 
+                      : 'border-purple-300 hover:border-purple-500 text-purple-700 hover:text-purple-800 bg-white hover:bg-purple-50'
+                  }`}
+                >
+                  Let the story begin with a surprise
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Custom prompt */}
-        <label className="block mb-6">
-          <span className="block font-medium mb-1">Custom Prompt</span>
-          <textarea
-            value={customPrompt}
-            onChange={e => setCustomPrompt(e.target.value)}
-            className="w-full border rounded px-3 py-2 h-24 resize-none"
-            placeholder="Further tweaks or story directions…"
-          />
-        </label>
-
-        {/* Generate */}
-        <button
-          onClick={handleGenerate}
-          disabled={isGenerating}
-          className={`w-full py-2 rounded text-white font-semibold transition ${
-            isGenerating ? 'bg-gray-400' : 'bg-purple-600 hover:bg-purple-700'
-          }`}
-        >
-          {isGenerating ? 'Generating…' : 'Generate Summaries'}
-        </button>
-
-        {apiError && <p className="mt-4 text-red-600 text-center">{apiError}</p>}
+        <div className="flex justify-center">
+          <button
+            onClick={createStory}
+            disabled={creating || pickedTopics.length === 0}
+            className={`px-8 py-3 rounded-xl font-bold text-base transition-all duration-300 transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed flex items-center ${
+              creating || pickedTopics.length === 0
+                ? (darkMode ? 'bg-gray-600 text-gray-400' : 'bg-gray-300 text-gray-500')
+                : 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-lg hover:shadow-xl'
+            }`}
+          >
+            {creating ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Generating...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                </svg>
+                Generate my Story
+              </>
+            )}
+          </button>
+        </div>
       </div>
-    );
-  }
 
-  // Carousel of results
-  return (
-    <div className="max-w-2xl mx-auto p-4">
-      <button
-        onClick={() => setSummaries([])}
-        className="text-sm text-purple-600 hover:underline mb-4"
-      >
-        ← Change Options
-      </button>
+      {successModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 pt-20">
+          <div className={`rounded-3xl p-8 max-w-md w-full mx-4 relative transition-colors duration-300 ${
+            darkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <button 
+              onClick={() => setSuccessModal(false)}
+              className={`absolute top-6 right-6 p-2 rounded-full transition-all duration-300 ${
+                darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-100 hover:bg-gray-200'
+              }`}
+            >
+              <svg className={`w-6 h-6 transition-colors duration-300 ${
+                darkMode ? 'text-gray-300' : 'text-gray-700'
+              }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
 
-      <Swiper slidesPerView={1} spaceBetween={20} pagination={{ clickable: true }} className="h-auto">
-        {summaries.map((s, i) => (
-          <SwiperSlide key={i}>
-            <div className="bg-white rounded-xl shadow p-4">
-              <h3 className="font-bold mb-2 truncate">{s.title}</h3>
-              <p className="text-gray-700 text-sm line-clamp-3 mb-4">{s.summary}</p>
-
-              <button
-                onClick={() =>
-                  onNavigate('playback', {
-                    stories: [s], // s includes {id?, audioUrl?, isPublic}
-                    settings: { lengthMinutes, voice, backgroundMusic, customPrompt },
-                  })
-                }
-                className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 transition"
-              >
-                Select
-              </button>
+            <div className="flex justify-center mb-8 mt-4">
+              <div className="w-14 h-14 bg-purple-600 rounded-full flex items-center justify-center">
+                <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
             </div>
-          </SwiperSlide>
-        ))}
-      </Swiper>
-    </div>
+
+            <div className="text-center mb-8">
+              <p className={`text-lg transition-colors duration-300 ${
+                darkMode ? 'text-white' : 'text-gray-800'
+              }`}>
+                Your story <span className="text-purple-600 font-medium">
+                  {storyTitle ? `"${storyTitle}"` : '(title of the Story)'}
+                </span> has been successfully created
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setSuccessModal(false);
+                onNavigate('playercontrols');
+              }}
+              className="w-full px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-bold text-base rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            >
+              Play Story
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

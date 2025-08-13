@@ -1,4 +1,3 @@
-// app/api/checkout/route.js
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -25,7 +24,6 @@ export async function POST(req) {
     cancel_url: `${origin}/credits?canceled=true`,
     metadata: {
       credits: String(credits),
-      // You may want to pass your own userId here (e.g. from cookies or headers)
     },
   });
 

@@ -1,5 +1,3 @@
-// app/store/page.js
-
 import Store from '../components/Store';
 import Link from 'next/link';
 
@@ -15,7 +13,6 @@ export default function StorePage() {
         padding: '48px 12px',
       }}
     >
-      {/* Go back to dashboard */}
       <div style={{ width: '100%', maxWidth: 600, marginBottom: 24 }}>
         <Link href="/dashboard">
           <button
@@ -36,7 +33,6 @@ export default function StorePage() {
         </Link>
       </div>
 
-      {/* Store Title and Description */}
       <div style={{ maxWidth: 600, width: '100%', textAlign: 'center', marginBottom: 32 }}>
         <h1 style={{ fontSize: 36, margin: '0 0 10px 0', color: '#5c258d' }}>Buy Credits</h1>
         <p style={{ fontSize: 18, color: '#444', margin: 0 }}>
@@ -47,7 +43,6 @@ export default function StorePage() {
         </p>
       </div>
 
-      {/* Store Component */}
       <div style={{ maxWidth: 500, width: '100%' }}>
         <Store />
       </div>

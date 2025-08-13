@@ -9,30 +9,25 @@ import {
   signInWithPopup,
   GoogleAuthProvider
 } from "firebase/auth";
-// import { auth } from "../app/firebase.js";
 import { auth } from "../firebase";
 
 export const AuthContext = createContext({});
 
 export function AuthContextProvider({ children }) {
-  const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
   
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      setUser(firebaseUser);
-      setLoading(false);
+    const unsub = onAuthStateChanged(auth, (fbUser) => {
+      setCurrentUser(fbUser);
+      setIsLoading(false);
     });
-    return unsubscribe;
+    return unsub;
   }, []);
   
   const signUp = (email, password) =>
     createUserWithEmailAndPassword(auth, email, password)
-  .then(cred => {
-    // optionally send email verification:
-    // cred.user.sendEmailVerification();
-    return cred.user;
-  });
+    .then(cred => cred.user);
   
   const login = (email, password) =>
     signInWithEmailAndPassword(auth, email, password);
@@ -41,16 +36,24 @@ export function AuthContextProvider({ children }) {
   
   const resetPassword = (email) =>
     sendPasswordResetEmail(auth, email, {
-      url: window.location.origin + "/signin" // where user lands after reset
+      url: window.location.origin + "/signin"
     });
     
-    const provider = new GoogleAuthProvider()
+  const googleProvider = new GoogleAuthProvider();
   const signInWithGoogle = () => 
-    signInWithPopup(auth, provider).then(result => result.user)
+    signInWithPopup(auth, googleProvider).then(result => result.user);
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, signUp, login, logout, resetPassword, signInWithGoogle }}
+      value={{ 
+        user: currentUser, 
+        loading: isLoading, 
+        signUp, 
+        login, 
+        logout, 
+        resetPassword, 
+        signInWithGoogle 
+      }}
     >
       {children}
     </AuthContext.Provider>

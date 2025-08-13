@@ -2,86 +2,76 @@
 
 import { useState, useContext } from 'react';
 import { useRouter } from 'next/navigation';
-import { AuthContext } from '@/context/AuthContext';
-import { setDoc, doc } from 'firebase/firestore';
-import { db } from '../firebase'; // Adjust path if needed
+import { AuthContext } from '../context/AuthContext';
 
 export default function SignUpPage() {
-  const { signUp } = useContext(AuthContext)
-  const [formData, setFormData] = useState({
+  const { signUp } = useContext(AuthContext);
+  const [userInfo, setUserInfo] = useState({
     email: '',
     username: '',
     password: ''
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [passVisible, setPassVisible] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [termsOk, setTermsOk] = useState(false);
   const router = useRouter();
 
-  const handleChange = (e) => {
+  const updateInput = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setUserInfo(prev => ({
       ...prev,
       [name]: value
     }));
   };
 
-  const handleSignUp = async () => {
-    if (!acceptTerms) {
+  const createAccount = async () => {
+    if (!termsOk) {
       alert('Please accept the terms and privacy policy');
       return;
     }
-    if (!formData.email || !formData.username || !formData.password) {
+    
+    if (!userInfo.email || !userInfo.username || !userInfo.password) {
       alert('Please fill in all fields');
       return;
     }
 
-    setIsLoading(true);
+    setProcessing(true);
     try {
-      // 1. Create Auth user
-      const userCredential = await signUp(formData.email, formData.password);
-      const user = userCredential.user || userCredential; // Support both return shapes
-
-      // 2. Create Firestore user doc with 10 credits!
-      await setDoc(doc(db, "users", user.uid), {
-        email: formData.email,
-        username: formData.username,
-        credits: 10,
-        createdAt: Date.now()
-      });
-
+      await signUp(userInfo.email, userInfo.password);
       window.alert("Account created successfully!");
       router.push('/dashboard');
     } catch (err) {
       window.alert("Registration failed. Please check your email & password and try again.");
-      console.error(err);
     } finally {
-      setIsLoading(false);
+      setProcessing(false);
     }
   };
 
-  const handleLogIn = () => {
+  const goToLogin = () => {
     router.push('/signin');
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-300 to-teal-400 flex flex-col items-center justify-center p-4">
-      {/* Logo */}
+    <div 
+      className="min-h-screen flex flex-col items-center justify-center p-4"
+      style={{
+        backgroundImage: 'url("/images/sleepingai-bg.jpg")',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
       <div className="mb-8">
         <h1 className="text-6xl md:text-7xl font-light text-white tracking-tight drop-shadow-lg text-center">
           Sleeping<span className="text-purple-600 font-medium">AI</span>
         </h1>
       </div>
 
-      {/* Sign Up Card */}
       <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-3xl">
         <h2 className="text-2xl font-medium text-gray-800 mb-8">Create account</h2>
         
-        {/* Horizontal Two Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column - Form Fields */}
           <div className="space-y-6">
-            {/* Email Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email
@@ -89,14 +79,13 @@ export default function SignUpPage() {
               <input
                 type="email"
                 name="email"
-                value={formData.email}
-                onChange={handleChange}
+                value={userInfo.email}
+                onChange={updateInput}
                 placeholder="Your email"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all duration-200 text-gray-700 placeholder-gray-400"
               />
             </div>
 
-            {/* Username Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Username
@@ -104,29 +93,28 @@ export default function SignUpPage() {
               <input
                 type="text"
                 name="username"
-                value={formData.username}
-                onChange={handleChange}
+                value={userInfo.username}
+                onChange={updateInput}
                 placeholder="Your username"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all duration-200 text-gray-700 placeholder-gray-400"
               />
             </div>
 
-            {/* Password Field */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
               <div className="relative">
                 <input
-                  type={showPassword ? "text" : "password"}
+                  type={passVisible ? "text" : "password"}
                   name="password"
-                  value={formData.password}
-                  onChange={handleChange}
+                  value={userInfo.password}
+                  onChange={updateInput}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all duration-200 text-gray-700 pr-12"
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setPassVisible(!passVisible)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -138,15 +126,13 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          {/* Right Column - Sign Up Button and Terms */}
           <div className="flex flex-col justify-center space-y-6">
-            {/* Sign Up Button */}
             <button
-              onClick={handleSignUp}
-              disabled={isLoading || !acceptTerms}
+              onClick={createAccount}
+              disabled={processing || !termsOk}
               className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-400 text-white py-3 px-6 rounded-lg font-medium transition-all duration-300 disabled:cursor-not-allowed"
             >
-              {isLoading ? (
+              {processing ? (
                 <div className="flex items-center justify-center gap-2">
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                   Creating account...
@@ -156,26 +142,24 @@ export default function SignUpPage() {
               )}
             </button>
 
-            {/* Terms Checkbox */}
             <div className="text-center">
               <label htmlFor="acceptTerms" className="text-sm text-gray-600 cursor-pointer flex items-center justify-center">
                 <input
                   type="checkbox"
                   id="acceptTerms"
-                  checked={acceptTerms}
-                  onChange={(e) => setAcceptTerms(e.target.checked)}
+                  checked={termsOk}
+                  onChange={(e) => setTermsOk(e.target.checked)}
                   className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500 mr-2"
                 />
                 I accept the terms and privacy policy
               </label>
             </div>
 
-            {/* Log In Link */}
             <div className="text-center mt-20">
               <span className="text-sm text-gray-600">
                 Already have an account?{' '}
                 <button
-                  onClick={handleLogIn}
+                  onClick={goToLogin}
                   className="text-purple-600 hover:text-purple-700 font-medium hover:underline transition-colors duration-200"
                 >
                   Log in
