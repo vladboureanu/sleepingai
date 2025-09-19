@@ -1,4 +1,4 @@
-// app/generate/page.jsx
+
 'use client';
 
 import { useState } from 'react';
